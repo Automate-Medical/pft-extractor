@@ -29,12 +29,27 @@ function detectPFTValues(tables: any[][]) {
 
   let detected = {
     spirometry: {
-      fvcPre: 0,
-      fvcPost: 0,
-      fev1Pre: 0,
-      fev1Post: 0,
-      fev1fvcPre: 0,
-      fev1fvcPost: 0
+      fvc: {
+        pre: null,
+        post: null,
+        predicted: null,
+        lln: null,
+        uln: null
+      },
+      fev1: {
+        pre: null,
+        post: null,
+        predicted: null,
+        lln: null,
+        uln: null
+      },
+      fev1fvc: {
+        pre: null,
+        post: null,
+        predicted: null,
+        lln: null,
+        uln: null
+      }
     }
   }
 
@@ -45,8 +60,12 @@ function detectPFTValues(tables: any[][]) {
       })
     })
   })
-
-  let spirometryColumnIndices = [null, null]
+  // 0 Pre
+  // 1 Post
+  // 2 Predicted
+  // 3 lln
+  // 4 uln
+  let spirometryColumnIndices = [null, null, null, null, null]
   spirometryTables.forEach((table) => {
     table.forEach((row) => {
       row.forEach((col, index) => {
@@ -55,6 +74,15 @@ function detectPFTValues(tables: any[][]) {
         }
         if (col.match(/^(Best)?\s*Post\s*$/)) {
           spirometryColumnIndices[1] = index
+        }
+        if (col.match(/^(Pred|Ref)\s*$/)) {
+          spirometryColumnIndices[2] = index
+        }
+        if (col.match(/^LLN\s*$/)) {
+          spirometryColumnIndices[3] = index
+        }
+        if (col.match(/^ULN\s*$/)) {
+          spirometryColumnIndices[4] = index
         }
       })
     })
@@ -65,24 +93,41 @@ function detectPFTValues(tables: any[][]) {
       table.forEach((row) => {
         if (row[0].match(FVC_RULE)) {
           // @ts-ignore
-          if (spirometryColumnIndices[0]) detected.spirometry.fvcPre = parseFloat(row[spirometryColumnIndices[0]])
+          if (spirometryColumnIndices[0]) detected.spirometry.fvc.pre = parseFloat(row[spirometryColumnIndices[0]])
           // @ts-ignore
-
-          if (spirometryColumnIndices[1]) detected.spirometry.fvcPost = parseFloat(row[spirometryColumnIndices[1]])
+          if (spirometryColumnIndices[1]) detected.spirometry.fvc.post = parseFloat(row[spirometryColumnIndices[1]])
+          // @ts-ignore
+          if (spirometryColumnIndices[2]) detected.spirometry.fvc.predicted = parseFloat(row[spirometryColumnIndices[2]])
+          // @ts-ignore
+          if (spirometryColumnIndices[3]) detected.spirometry.fvc.lln = parseFloat(row[spirometryColumnIndices[3]])
+          // @ts-ignore
+          if (spirometryColumnIndices[4]) detected.spirometry.fvc.uln = parseFloat(row[spirometryColumnIndices[4]])
         }
 
         if (row[0].match(FEV1_RULE)) {    
           // @ts-ignore
-          if (spirometryColumnIndices[0]) detected.spirometry.fev1Pre = parseFloat(row[spirometryColumnIndices[0]])
+          if (spirometryColumnIndices[0]) detected.spirometry.fev1.pre = parseFloat(row[spirometryColumnIndices[0]])
           // @ts-ignore
-          if (spirometryColumnIndices[1]) detected.spirometry.fev1Post = parseFloat(row[spirometryColumnIndices[1]])
+          if (spirometryColumnIndices[1]) detected.spirometry.fev1.post = parseFloat(row[spirometryColumnIndices[1]])
+          // @ts-ignore
+          if (spirometryColumnIndices[2]) detected.spirometry.fev1.predicted = parseFloat(row[spirometryColumnIndices[2]])
+          // @ts-ignore
+          if (spirometryColumnIndices[3]) detected.spirometry.fev1.lln = parseFloat(row[spirometryColumnIndices[3]])
+          // @ts-ignore
+          if (spirometryColumnIndices[4]) detected.spirometry.fev1.uln = parseFloat(row[spirometryColumnIndices[4]])
         }
 
         if (row[0].match(FEV1_FVC_RULE)) {          
           // @ts-ignore
-          if (spirometryColumnIndices[0]) detected.spirometry.fev1fvcPre = parseFloat(row[spirometryColumnIndices[0]])
+          if (spirometryColumnIndices[0]) detected.spirometry.fev1fvc.pre = parseFloat(row[spirometryColumnIndices[0]])
           // @ts-ignore
-          if (spirometryColumnIndices[1]) detected.spirometry.fev1fvcPost = parseFloat(row[spirometryColumnIndices[1]])
+          if (spirometryColumnIndices[1]) detected.spirometry.fev1fvc.post = parseFloat(row[spirometryColumnIndices[1]])
+          // @ts-ignore
+          if (spirometryColumnIndices[2]) detected.spirometry.fev1fvc.predicted = parseFloat(row[spirometryColumnIndices[2]])
+          // @ts-ignore
+          if (spirometryColumnIndices[3]) detected.spirometry.fev1fvc.lln = parseFloat(row[spirometryColumnIndices[3]])
+          // @ts-ignore
+          if (spirometryColumnIndices[4]) detected.spirometry.fev1fvc.uln = parseFloat(row[spirometryColumnIndices[4]])
         }
       })
     })

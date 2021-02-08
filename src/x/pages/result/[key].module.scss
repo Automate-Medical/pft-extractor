@@ -1,0 +1,12 @@
+@import "../../Global.scss";
+
+.Main {
+  display: grid;
+  grid-gap: $grid-gap;
+  margin: 20px;
+  grid-template-columns: 1fr 2fr
+}
+
+.Table {
+  width: 100%;
+}
