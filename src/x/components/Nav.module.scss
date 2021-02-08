@@ -1,0 +1,11 @@
+@import "~@blueprintjs/core/lib/scss/variables";
+@import "../Global.scss";
+
+.Nav {  
+  background-color: $theme-gradient !important;
+  
+  a {
+    color: $white; 
+  }
+}
+
