@@ -21,7 +21,7 @@ export const handler: S3Handler = async (event: S3Event, context: Context, callb
     // @ts-ignore
     const json = JSON.parse(response.Body.toString())
 
-    const transformation = transform(json)
+    const transformation = transform(json).toJson()
 
     const params = {
       Bucket: process.env.S3_BUCKET,
