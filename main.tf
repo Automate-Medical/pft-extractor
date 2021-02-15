@@ -15,6 +15,9 @@ module "s3_bucket_ingress" {
   }
 
   // @TODO log
+  // @TODO SSE
+  // @TODO public access? <- write only?
+  // @TODO versioning?
 
   cors_rule = [
     {
@@ -27,7 +30,6 @@ module "s3_bucket_ingress" {
   ]
 }
 
-// @TODO permissions, lifecycle, etc
 module "s3_bucket_textract_output" {
   source = "terraform-aws-modules/s3-bucket/aws"
 
@@ -43,6 +45,11 @@ module "s3_bucket_textract_output" {
   tags = {
     Owner = "pft-extractor"
   }
+
+  // @TODO log
+  // @TODO SSE
+  // @TODO public access? 
+  // @TODO versioning?
 }
 
 module "s3_bucket_egress" {
@@ -60,6 +67,11 @@ module "s3_bucket_egress" {
   tags = {
     Owner = "pft-extractor"
   }
+
+  // @TODO log
+  // @TODO SSE
+  // @TODO public access?
+  // @TODO versioning?
 }
 
 module "lambda_function_save_textract_output" {
@@ -69,8 +81,6 @@ module "lambda_function_save_textract_output" {
   description   = "Function to save and store Textract Job results"
   handler       = "index.handler"
   runtime       = "nodejs12.x"
-
-  # source_path = "src/save-textract-output/dist" // @TODO automate the fact that you have to run build step
 
   tags = {
     Owner = "pft-extractor"
@@ -122,6 +132,10 @@ module "lambda_function_ingress" {
   description   = "Ingress function to call Textract on new PFTs being uploaded"
   handler       = "index.handler"
   runtime       = "nodejs12.x"
+  
+  tags = {
+    Owner = "pft-extractor"
+  }
 
   source_path = [
     {
@@ -134,10 +148,6 @@ module "lambda_function_ingress" {
     }
   ]
 
-  tags = {
-    Owner = "pft-extractor"
-  }
-
   attach_policy_statements = true
   policy_statements = {
     startTextract = {
@@ -149,6 +159,11 @@ module "lambda_function_ingress" {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
       resources = ["${module.s3_bucket_ingress.this_s3_bucket_arn}/*"]
+    },
+    kmsDecrypt = {
+      effect    = "Allow",
+      actions   = ["kms:Decrypt"],
+      resources = ["${aws_kms_key.s3_bucket_key.arn}"]
     }
   }
 
@@ -348,6 +363,7 @@ module "lambda_function_list_egress" {
     "S3_BUCKET_EGRESS" = module.s3_bucket_egress.this_s3_bucket_id
   }
 
+  // @TODO
   source_path = "${path.module}/src/api/dist"
   # source_path = [
   #   {
@@ -395,6 +411,7 @@ module "lambda_function_prepare_ingress" {
     "S3_BUCKET_INGRESS" = module.s3_bucket_ingress.this_s3_bucket_id
   }
 
+  // @TODO
   source_path = "${path.module}/src/api/dist"
   # source_path = [
   #   {
@@ -448,6 +465,7 @@ module "lambda_function_egress_result" {
     "S3_BUCKET_INGRESS" = module.s3_bucket_ingress.this_s3_bucket_id
   }
 
+  // @TODO
   source_path = "${path.module}/src/api/dist"
 }
 
@@ -491,6 +509,7 @@ module "client_api" {
   description   = "A gateway for the X client"
   protocol_type = "HTTP"
 
+  // @TODO lock down
   cors_configuration = {
     allow_headers = ["content-type", "x-amz-date", "authorization", "x-api-key", "x-amz-security-token", "x-amz-user-agent"]
     allow_methods = ["*"]
@@ -498,13 +517,10 @@ module "client_api" {
   }
 
   default_stage_access_log_destination_arn = aws_cloudwatch_log_group.client_api_log_group.arn
+  // @TODO - is this maximal logging?
   default_stage_access_log_format          = "$context.identity.sourceIp - - [$context.requestTime] \"$context.httpMethod $context.routeKey $context.protocol\" $context.status $context.responseLength $context.requestId $context.integrationErrorMessage"
 
   create_api_domain_name = false
-
-  # Access logs
-  # default_stage_access_log_destination_arn = "arn:aws:logs:eu-west-1:835367859851:log-group:debug-apigateway"
-  # default_stage_access_log_format          = "$context.identity.sourceIp - - [$context.requestTime] \"$context.httpMethod $context.routeKey $context.protocol\" $context.status $context.responseLength $context.requestId $context.integrationErrorMessage"
 
   # Routes and integrations
   integrations = {
@@ -556,5 +572,5 @@ resource "aws_apigatewayv2_authorizer" "client_api_authorizer" {
 }
 
 resource "aws_cloudwatch_log_group" "client_api_log_group" {
-  name = "client_api"
+  name = "/aws/api-gateway/client-api"
 }

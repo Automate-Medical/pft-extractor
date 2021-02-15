@@ -24,7 +24,7 @@ export default function Result() {
             type="application/pdf"
             data={data.ingressUrl}
             width="600"
-            height="700"
+            height="1000"
           ></object>
         </Card>
         
