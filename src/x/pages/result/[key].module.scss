@@ -4,9 +4,17 @@
   display: grid;
   grid-gap: $grid-gap;
   margin: 20px;
-  grid-template-columns: 1fr 2fr
+  grid-template-columns: 1fr 3fr
 }
 
 .Table {
   width: 100%;
+
+  th {
+    white-space: nowrap;
+  }
+}
+
+.Pre {
+  white-space: pre-wrap;
 }

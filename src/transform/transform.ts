@@ -7,13 +7,16 @@ const FVC_RULE = /^FVC\s*\(?L?\)?\s*$/
 const FEV1_RULE = /^FEV\s*1\s*\(?L?\)?\s*$/
 const FEV1_FVC_RULE = /^FEV\s*1\s*\/?%?\s*FVC\s*\(?%?\)?\s*$/
 const FEF25_75_RULE = /^FEF25-75%?\s*(\(%\))?\s*$/
+const FET_RULE = /^FET(100%|\s*\(sec\))\s*$/ 
 
-const SPIROMETRY_RULES = [FVC_RULE, FEV1_RULE, FEV1_FVC_RULE, FEF25_75_RULE]
+const SPIROMETRY_RULES = [FVC_RULE, FEV1_RULE, FEV1_FVC_RULE, FEF25_75_RULE, FET_RULE]
 
 const DLCOSB_RULE = /^DLCO(\s*|_)(sb|SB)\s*\(?.*\)?\s*$/
+const DLCOCSB_RULE = /^DLCOc(sb|SB)\s*\(?.*\)?\s*$/
+const IVCSB_RULE = /^IVC(sb|_SB)\s*\(?.*\)?\s*$/
 const DLVA_RULE = /^DL\/VA\s*\(?.*\)?\s*$/
 
-const DIFFUSION_RULES = [DLCOSB_RULE, DLVA_RULE]
+const DIFFUSION_RULES = [DLCOSB_RULE, DLVA_RULE, DLCOCSB_RULE, IVCSB_RULE]
 
 const PRE_RULE = /^(Best)?\s*Pre\s*$/
 const POST_RULE = /^(Best)?\s*Post\s*$/
@@ -23,13 +26,25 @@ const ULN_RULE = /^ULN\s*$/
 
 const COLUMN_RULES = [PRE_RULE, POST_RULE, PREDICTED_RULE, LLN_RULE, ULN_RULE]
 
-export default function transform(data: AnalyzeDocumentResponse) {
-  const tables = getTables(data)
+const COMMENT_RULE = /Comments\:$/
 
-  return detectPFTValues(tables)
+export default function transform(data: AnalyzeDocumentResponse) {
+  return detectPFTValues(data)
 }
 
-function detectPFTValues(tables: any[][]): Normalized {
+function detectComment(data: AnalyzeDocumentResponse): void | string {
+  const commentLine = data.Blocks?.findIndex((block: Block) => {
+    return block.BlockType == "LINE" && block.Text?.match(COMMENT_RULE)
+  })
+
+  if (commentLine > -1) {
+    return data.Blocks[commentLine + 1].Text
+  }
+}
+
+function detectPFTValues(data: AnalyzeDocumentResponse): Normalized {
+  const tables: any[][] = getTables(data)
+
   let detected = new Normalized()
 
   let tablePredictions = tables.map((table) => {
@@ -104,12 +119,34 @@ function detectPFTValues(tables: any[][]): Normalized {
         if (columns[4]) detected.pft.spirometry.fef2575.uln = parseValue(row[columns[4]])
       }
 
+      // @note don't bother with anything but pre/post since FET doesn't have the other values 
+      if (row[0].match(FET_RULE)) {          
+        if (columns[0]) detected.pft.spirometry.fet.pre = parseValue(row[columns[0]])
+        if (columns[1]) detected.pft.spirometry.fet.post = parseValue(row[columns[1]])
+      }
+
       if (row[0].match(DLCOSB_RULE)) {          
         if (columns[0]) detected.pft.diffusion.dlcosb.pre = parseValue(row[columns[0]])
         if (columns[1]) detected.pft.diffusion.dlcosb.post = parseValue(row[columns[1]])
         if (columns[2]) detected.pft.diffusion.dlcosb.predicted = parseValue(row[columns[2]])
         if (columns[3]) detected.pft.diffusion.dlcosb.lln = parseValue(row[columns[3]])
         if (columns[4]) detected.pft.diffusion.dlcosb.uln = parseValue(row[columns[4]])
+      }
+
+      if (row[0].match(DLCOCSB_RULE)) {          
+        if (columns[0]) detected.pft.diffusion.dlcocsb.pre = parseValue(row[columns[0]])
+        if (columns[1]) detected.pft.diffusion.dlcocsb.post = parseValue(row[columns[1]])
+        if (columns[2]) detected.pft.diffusion.dlcocsb.predicted = parseValue(row[columns[2]])
+        if (columns[3]) detected.pft.diffusion.dlcocsb.lln = parseValue(row[columns[3]])
+        if (columns[4]) detected.pft.diffusion.dlcocsb.uln = parseValue(row[columns[4]])
+      }
+
+      if (row[0].match(IVCSB_RULE)) {          
+        if (columns[0]) detected.pft.diffusion.ivcsb.pre = parseValue(row[columns[0]])
+        if (columns[1]) detected.pft.diffusion.ivcsb.post = parseValue(row[columns[1]])
+        if (columns[2]) detected.pft.diffusion.ivcsb.predicted = parseValue(row[columns[2]])
+        if (columns[3]) detected.pft.diffusion.ivcsb.lln = parseValue(row[columns[3]])
+        if (columns[4]) detected.pft.diffusion.ivcsb.uln = parseValue(row[columns[4]])
       }
 
       if (row[0].match(DLVA_RULE)) {          
@@ -122,6 +159,10 @@ function detectPFTValues(tables: any[][]): Normalized {
     })
   })
   
+  const comment = detectComment (data)
+
+  if (comment) detected.pft.meta.comment = comment;
+
   return detected;
 }
 
