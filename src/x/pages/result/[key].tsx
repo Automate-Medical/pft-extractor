@@ -1,105 +1,121 @@
+import React, { Fragment, useState } from 'react'
+
 import Head from 'next/head'
 import useSWR from 'swr'
-import { useRouter } from 'next/router'
 import api from '../../lib/api'
-import React, { Fragment } from 'react'
-import { Card, H2, H3, H4, H5, HTMLTable, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core'
+
 import styles from "./[key].module.scss"
-import { INTENT_PRIMARY } from '@blueprintjs/core/lib/esm/common/classes'
+
+import { Button, ButtonGroup, Card, H3, H4, H5, HTMLTable, InputGroup, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core'
+import { PFT, PFTElementType as PFTType, PFTElement  } from '../../types'
+import { useRouter } from 'next/router'
+
+interface IResponseData {
+  egress: PFT,
+  ingressUrl: string
+}
+
+function Structured({ data }: { data: IResponseData }) {
+  const [groupFilter, setGroupFilter] = useState<string>(null)
+  const [typeFilter, setTypeFilter] = useState<string>('')
+
+  function FilterButton({ group }) {
+    return (
+      <Button
+        onClick={(e) => {
+          groupFilter == group ? setGroupFilter(null) : setGroupFilter(group)
+        }}
+        active={groupFilter == group ? true : false}>
+          {group}
+      </Button>
+    )
+  }
+
+  return (
+    <Fragment>
+      <section className={styles.Filters}>
+        <section>
+          <H5>Filter by group</H5>
+          <ButtonGroup>
+            <FilterButton group={"Spirometry"}/>
+            <FilterButton group={"Diffusion Capacity"}/>
+            <FilterButton group={"Quality"}/>
+          </ButtonGroup>
+        </section>
+        <section>
+          <H5>Filter by key</H5>
+          <InputGroup
+              key={`type-filter`}
+              asyncControl={true}
+              onChange={(e) => setTimeout(() => { setTypeFilter(e.target.value) }, 10)}
+              placeholder="Regexp type filter"
+              value={typeFilter}
+          />
+        </section>
+      </section>
+
+      <HTMLTable condensed={true} bordered={true} className={styles.Table} striped={true}>
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th>Key</th>
+            <th>LOINC</th>
+            <th>Short Name</th>
+            <th>Value</th>
+            <th>Units</th>
+          </tr>
+        </thead>
+        <tbody>
+          { data.egress.elements.filter((e) => {
+              return (groupFilter ? e.meta.group == groupFilter : true) && (typeFilter ? e.meta.type.match(typeFilter) : true)
+            }).map((element: PFTElement) => {
+            return (
+              <tr key={element.meta.type}>
+                <td><Tag>{element.meta.group}</Tag></td>
+                <td><Tag intent="primary"><strong>{element.meta.type}</strong></Tag></td>
+                <td>{ element.meta.loinc ? (<a href={`https://loinc.org/${element.meta.loinc}/`}><Tag intent="success" round={true}>{element.meta.loinc}</Tag></a>) : null }</td>
+                <td>{element.meta.shortName}</td>
+                <td>{element.value}</td>
+                <td>{element.meta.units}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </HTMLTable>
+    </Fragment>
+  )
+}
 
 export default function Result() {
   const router = useRouter()
   const { key } = router.query
 
-  const { data, error } = useSWR(`/egress/${key}`, api)
-  
-  function Raw() {
-    return (<pre className={styles.Pre}>{JSON.stringify(data.egress, null, 2) }</pre>)
-  }
+  const { data, error }: {
+    data?: IResponseData,
+    error?: any
+  } = useSWR(key ? `/egress/${key}` : null, api)
 
-  function Table() {
+  function Stages() {
     return (
-      <section>
-        <H5>Tests</H5>
-        <HTMLTable condensed={true} bordered={true} className={styles.Table}>
-          <thead>
-            <tr>
-              <th>Group</th>
-              <th>Key</th>
-              <th>LOINC Code</th>
-              <th>Common Name</th>  
-              <th>Predicted</th>
-              <th>LLN</th> 
-              <th>ULN</th>
-              <th>Best Pre</th> 
-              <th>Best Post</th> 
-            </tr>
-          </thead>
-          <tbody>
-            { Object.keys(data.egress).map((group) => {
-              if (group == "meta") return null;
-
-              return Object.keys(data.egress[group]).map((key) => {
-                const row = data.egress[group][key]
-                return (
-                  <tr>
-                    <td><Tag>{group}</Tag></td>
-                    <td><Tag intent="primary"><strong>{key}</strong></Tag></td>
-                    <td><a href={`https://loinc.org/${row.meta.loinc}/`}>{row.meta.loinc}</a></td>
-                    <td>{row.meta.commonName}</td>
-                    <td>{row.predicted}</td>
-                    <td>{row.lln}</td>
-                    <td>{row.uln}</td>
-                    <td><strong>{row.pre}</strong></td>
-                    <td>{row.post}</td>
-                  </tr>
-                )
-              })
-            })}
-          </tbody>
-        </HTMLTable>
-
-        
-        { data.egress.meta?.comment ? (
-          <Fragment>
-            <H5>Technician Commentary</H5>
-            <p>{data.egress.meta?.comment}</p>
-          </Fragment>
-        ) : null }
-      </section>
+      <Fragment>
+        <H4>Extraction Stages</H4>
+        <p><Tag>Ingress</Tag> <code> s3://pft-extractor-ingress/{key}</code></p>
+        <p><Tag>Textract</Tag><code> s3://pft-extractor-textract/{key}</code></p>
+        <p><Tag>Egress</Tag><code> s3://pft-extractor-egress/{key}</code></p>
+      </Fragment>
     )
-  }
-
-  function Preview() {
-    return <object
-      type="application/pdf"
-      data={data.ingressUrl}
-      width="500"
-      height="1000"
-    ></object>
   }
 
   function Data() {
     return (
-      <section className={styles.Main}>
-        <Card>
-          <Preview />
-        </Card>
-        <Card>
-          <H3>Key: {key}</H3>
-          <H4>Extraction Stages</H4>
-          <p><Tag intent="success">Ingress</Tag> <code> s3://pft-extractor-ingress/{key}</code></p>
-          <p><Tag intent="success">Textract</Tag><code> s3://pft-extractor-textract/{key}</code></p>
-          <p><Tag intent="success">Egress</Tag><code> s3://pft-extractor-egress/{key}</code></p>
-
-          <H4>Extraction Result</H4>
-          <Tabs id="Tabs" defaultSelectedTabId="loinc">
-            <Tab id="loinc" title="Structured Data" panel={<Table />} />
-            <Tab id="raw" title="Raw JSON" panel={<Raw />} />
-            <Tab id="csv" title="Comma Separated Values" panel={<p>test</p>} />
-          </Tabs>
-        </Card>
-      </section>
+      <Fragment>
+        <H4>Extraction Result</H4>
+        <Tabs id="Tabs" defaultSelectedTabId="structured">
+          <Tab id="structured" title="Structured Data" panel={<Structured data={data}/>} />
+          <Tab id="raw" title="Raw JSON" panel={<pre className={styles.Pre}>{JSON.stringify(data, null, 2) }</pre>} />
+          <Tab id="stages" title="Extraction Stages" panel={<Stages />} />
+        </Tabs>
+      </Fragment>
     )
   }
 
@@ -109,7 +125,20 @@ export default function Result() {
         <title>X - Egress</title>
       </Head>
       <main>
-        {data ? <Data />: <Spinner />}
+        <section className={styles.Main}>
+          <Card>
+            <object
+              type="application/pdf"
+              data={data ? data.ingressUrl : null}
+              width="500"
+              height="1000"
+            ></object>
+          </Card>
+          <Card>
+            <H3>Key: {key}</H3>
+            {data ? <Data />: <Spinner />}
+          </Card>
+        </section>
       </main>
     </div>
   )

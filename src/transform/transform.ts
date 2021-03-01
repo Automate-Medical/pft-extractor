@@ -1,169 +1,746 @@
-// @ts-nocheck
 
 import { Block, AnalyzeDocumentResponse } from "@aws-sdk/client-textract";
-import Normalized from "./normalized";
-
-const FVC_RULE = /^FVC\s*\(?L?\)?\s*$/
-const FEV1_RULE = /^FEV\s*1\s*\(?L?\)?\s*$/
-const FEV1_FVC_RULE = /^FEV\s*1\s*\/?%?\s*FVC\s*\(?%?\)?\s*$/
-const FEF25_75_RULE = /^FEF25-75%?\s*(\(%\))?\s*$/
-const FET_RULE = /^FET(100%|\s*\(sec\))\s*$/ 
-
-const SPIROMETRY_RULES = [FVC_RULE, FEV1_RULE, FEV1_FVC_RULE, FEF25_75_RULE, FET_RULE]
-
-const DLCOSB_RULE = /^DLCO(\s*|_)(sb|SB)\s*\(?.*\)?\s*$/
-const DLCOCSB_RULE = /^DLCOc(sb|SB)\s*\(?.*\)?\s*$/
-const IVCSB_RULE = /^IVC(sb|_SB)\s*\(?.*\)?\s*$/
-const DLVA_RULE = /^DL\/VA\s*\(?.*\)?\s*$/
-
-const DIFFUSION_RULES = [DLCOSB_RULE, DLVA_RULE, DLCOCSB_RULE, IVCSB_RULE]
-
-const PRE_RULE = /^(Best)?\s*Pre\s*$/
-const POST_RULE = /^(Best)?\s*Post\s*$/
-const PREDICTED_RULE = /^(Pred|Ref)\s*$/
-const LLN_RULE = /^LLN\s*$/
-const ULN_RULE = /^ULN\s*$/
-
-const COLUMN_RULES = [PRE_RULE, POST_RULE, PREDICTED_RULE, LLN_RULE, ULN_RULE]
-
-const COMMENT_RULE = /Comments\:$/
+import * as Rules from "./rules";
+import { PFT, PFTElementType as PFTType, PFTElement } from './types'
 
 export default function transform(data: AnalyzeDocumentResponse) {
-  return detectPFTValues(data)
+  return extract(data)
+}
+
+function extract(data: AnalyzeDocumentResponse): PFT {
+  const tables: string[][][] = getTables(data)
+
+  let pft = <PFT> {
+    elements: []
+  }
+
+  let tablePredictions = predictTables(tables)
+
+  tables.forEach((table, index) => {
+    if (tablePredictions[index][0] == false || tablePredictions[index][1] == null) return
+
+    const columns = tablePredictions[index][1]
+
+    table.forEach((row) => {
+      if (row[0].match(Rules.FVC)) {
+        // ordering is sensitive, must match columns expectations
+        [PFTType.FVC_PRE, PFTType.FVC_POST, PFTType.FVC_REF, PFTType.FVC_PREREF, PFTType.FVC_POSTREF, PFTType.FVC_LLN, PFTType.FVC_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.FEV1)) {
+        [PFTType.FEV1_PRE, PFTType.FEV1_POST, PFTType.FEV1_REF, PFTType.FEV1_PREREF, PFTType.FEV1_POSTREF, PFTType.FEV1_LLN, PFTType.FEV1_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.FEV1_FVC)) {
+        [PFTType.FEV1FVC_PRE, PFTType.FEV1FVC_POST, PFTType.FEV1FVC_REF, PFTType.FEV1FVC_PREREF, PFTType.FEV1FVC_POSTREF, PFTType.FEV1FVC_LLN, PFTType.FEV1FVC_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.FEF25_75)) {
+        [PFTType.FEF2575_PRE, PFTType.FEF2575_POST, PFTType.FEF2575_REF, PFTType.FEF2575_PREREF, PFTType.FEF2575_POSTREF, PFTType.FEF2575_LLN, PFTType.FEF2575_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.FET)) {
+        [PFTType.FET_PRE, PFTType.FET_POST].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.DLCOSB)) {
+        [PFTType.DLCOSB_PRE, PFTType.DLCOSB_POST, PFTType.DLCOSB_REF, PFTType.DLCOSB_PREREF, PFTType.DLCOSB_POSTREF, PFTType.DLCOSB_LLN, PFTType.DLCOSB_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.DLCOCSB)) {
+        [PFTType.DLCOCSB_PRE, PFTType.DLCOCSB_POST, PFTType.DLCOCSB_REF, PFTType.DLCOCSB_PREREF, PFTType.DLCOCSB_POSTREF, PFTType.DLCOCSB_LLN, PFTType.DLCOCSB_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.IVCSB)) {
+        [PFTType.IVCSB_PRE, PFTType.IVCSB_POST, PFTType.IVCSB_REF, PFTType.IVCSB_PREREF, PFTType.IVCSB_POSTREF, PFTType.IVCSB_LLN, PFTType.IVCSB_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      } else if (row[0].match(Rules.DLVA)) {
+        [PFTType.DLVA_PRE, PFTType.DLVA_POST, PFTType.DLVA_REF, PFTType.DLVA_PREREF, PFTType.DLVA_POSTREF, PFTType.DLVA_LLN, PFTType.DLVA_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
+      }
+    })
+  })
+
+  const comment = detectComment(data)
+
+  if (comment) preparePFTElement(pft, PFTType.RT_COMMENT, comment, true)
+
+  return pft;
 }
 
 function detectComment(data: AnalyzeDocumentResponse): void | string {
+  if (!data.Blocks) return;
+
   const commentLine = data.Blocks?.findIndex((block: Block) => {
-    return block.BlockType == "LINE" && block.Text?.match(COMMENT_RULE)
+    return block.BlockType == "LINE" && block.Text?.match(Rules.COMMENT)
   })
 
-  if (commentLine > -1) {
+  if (commentLine && commentLine > -1) {
     return data.Blocks[commentLine + 1].Text
   }
 }
 
-function detectPFTValues(data: AnalyzeDocumentResponse): Normalized {
-  const tables: any[][] = getTables(data)
+function preparePFTElement(pft: PFT, type: PFTType, value: any, useLiteralValue: boolean = false) {
+  if (!useLiteralValue) {
+    value = parseValue(value);
+  }
 
-  let detected = new Normalized()
+  if (value != null) {
+    pft.elements.push(createPFTElement(type, value))
+  }
+}
 
-  let tablePredictions = tables.map((table) => {
-    let spirometry = 0
-    let diffusion = 0
-    let columns: any[] = new Array(COLUMN_RULES.length)
+function createPFTElement(type: PFTType, value: number | string): PFTElement {
+  switch (type) {
+    case PFTType.FVC_PRE:
+      return {
+        meta: {
+          loinc: "19876-2",
+          shortName: "FVC pre BD Vol Respiratory Spirometry",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FVC_PRE
+        },
+        value
+      }
+    case PFTType.FVC_POST:
+      return {
+        meta: {
+          loinc: "19874-7",
+          shortName: "FVC p BD Vol Respiratory Spirometry",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FVC_POST
+        },
+        value
+      }
+    case PFTType.FVC_REF:
+      return {
+        meta: {
+          loinc: "19869-7",
+          shortName: "FVC Vol Respiratory Predicted",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FVC_REF
+        },
+        value
+      }
+    case PFTType.FVC_PREREF:
+      return {
+        meta: {
+          shortName: "FVC pre BD Vol Respiratory % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FVC_PREREF
+        },
+        value
+      }
+    case PFTType.FVC_POSTREF:
+      return {
+        meta: {
+          shortName: "FVC p BD Vol Respiratory % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FVC_POSTREF
+        },
+        value
+      }
+    case PFTType.FVC_LLN:
+      return {
+        meta: {
+          shortName: "FVC Vol Respiratory LLN",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FVC_LLN
+        },
+        value
+      }
+    case PFTType.FVC_ULN:
+      return {
+        meta: {
+          shortName: "FVC Vol Respiratory ULN",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FVC_ULN
+        },
+        value
+      }
+    case PFTType.FEV1_PRE:
+      return {
+        meta: {
+          loinc: "20157-4",
+          shortName: "FEV1 pre BD",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FEV1_PRE
+        },
+        value
+      }
+    case PFTType.FEV1_POST:
+      return {
+        meta: {
+          loinc: "20155-8",
+          shortName: "FEV1 p BD",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FEV1_POST
+        },
+        value
+      }
+    case PFTType.FEV1_REF:
+      return {
+        meta: {
+          loinc: "20149-1",
+          shortName: "FEV1 Predicted",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FEV1_REF
+        },
+        value
+      }
+    case PFTType.FEV1_PREREF:
+      return {
+        meta: {
+          shortName: "FEV1 pre BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1_PREREF
+        },
+        value
+      }
+    case PFTType.FEV1_POSTREF:
+      return {
+        meta: {
+          shortName: "FEV1 p BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1_POSTREF
+        },
+        value
+      }
+    case PFTType.FEV1_POST:
+      return {
+        meta: {
+          loinc: "20155-8",
+          shortName: "FEV1 p BD",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FEV1_POST
+        },
+        value
+      }
+    case PFTType.FEV1_LLN:
+      return {
+        meta: {
+          shortName: "FEV1 LLN",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FEV1_LLN
+        },
+        value
+      }
+    case PFTType.FEV1_ULN:
+      return {
+        meta: {
+          shortName: "FEV1 ULN",
+          units: "L",
+          group: "Spirometry",
+          type: PFTType.FEV1_ULN
+        },
+        value
+      }
+    case PFTType.FEV1FVC_PRE:
+        return {
+          meta: {
+            loinc: "19926-5",
+            shortName: "FEV1/FVC",
+            units: "%",
+            group: "Spirometry",
+            type: PFTType.FEV1FVC_PRE
+          },
+          value
+        }
+    case PFTType.FEV1FVC_POST:
+      return {
+        meta: {
+          loinc: "69970-2",
+          shortName: "FEV1/FVC p BD",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1FVC_POST
+        },
+        value
+      }
+    case PFTType.FEV1FVC_REF:
+      return {
+        meta: {
+          loinc: "19925-7",
+          shortName: "FEV1/FVC Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1FVC_REF
+        },
+        value
+      }
+    case PFTType.FEV1FVC_PREREF:
+      return {
+        meta: {
+          shortName: "FEV1/FVC % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1FVC_PREREF
+        },
+        value
+      }
+    case PFTType.FEV1FVC_POSTREF:
+      return {
+        meta: {
+          shortName: "FEV1/FVC p BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1FVC_POSTREF
+        },
+        value
+      }
+    case PFTType.FEV1FVC_LLN:
+      return {
+        meta: {
+          shortName: "FEV1/FVC LLN",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1FVC_LLN
+        },
+        value
+      }
+    case PFTType.FEV1FVC_ULN:
+      return {
+        meta: {
+          shortName: "FEV1/FVC ULN",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEV1FVC_ULN
+        },
+        value
+      }
+    case PFTType.FEF2575_PRE:
+      return {
+        meta: {
+          loinc: "69972-8",
+          shortName: "FEF 25-75% pre BD",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF2575_PRE
+        },
+        value
+      }
+    case PFTType.FEF2575_POST:
+      return {
+        meta: {
+          loinc: "69973-6",
+          shortName: "FEF 25-75% p BD",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF2575_POST
+        },
+        value
+      }
+    case PFTType.FEF2575_REF:
+      return {
+        meta: {
+          loinc: "69971-0",
+          shortName: "FEF 25-75% Predicted",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF2575_REF
+        },
+        value
+      }
+    case PFTType.FEF2575_PREREF:
+      return {
+        meta: {
+          shortName: "FEF 25-75% pre BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEF2575_PREREF
+        },
+        value
+      }
+    case PFTType.FEF2575_POSTREF:
+      return {
+        meta: {
+          shortName: "FEF 25-75% p BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEF2575_POSTREF
+        },
+        value
+      }
+    case PFTType.FEF2575_LLN:
+      return {
+        meta: {
+          shortName: "FEF 25-75% LLN",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF2575_LLN
+        },
+        value
+      }
+    case PFTType.FEF2575_ULN:
+      return {
+        meta: {
+          shortName: "FEF 25-75% ULN",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF2575_ULN
+        },
+        value
+      }
+    case PFTType.FET_PRE:
+      return {
+        meta: {
+          loinc: "65819-5",
+          shortName: "FET",
+          units: "s",
+          group: "Spirometry",
+          type: PFTType.FET_PRE
+        },
+        value
+      }
+    case PFTType.FET_POST:
+      return {
+        meta: {
+          loinc: "65819-5",
+          shortName: "FET",
+          units: "s",
+          group: "Spirometry",
+          type: PFTType.FET_POST
+        },
+        value
+      }
+    case PFTType.DLCOSB_PRE:
+      return {
+        meta: {
+          loinc: "19911-7",
+          shortName: "Diff cap.CO",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOSB_PRE
+        },
+        value
+      }
+    case PFTType.DLCOSB_POST:
+      return {
+        meta: {
+          loinc: "19911-7",
+          shortName: "Diff cap.CO",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOSB_POST
+        },
+        value
+      }
+    case PFTType.DLCOSB_REF:
+      return {
+        meta: {
+          loinc: "19910-9",
+          shortName: "Diff cap.CO Predicted",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOSB_REF
+        },
+        value
+      }
+    case PFTType.DLCOSB_PREREF:
+      return {
+        meta: {
+          shortName: "Diff cap.CO % Predicted",
+          units: "%",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOSB_PREREF
+        },
+        value
+      }
+    case PFTType.DLCOSB_POSTREF:
+      return {
+        meta: {
+          shortName: "Diff cap.CO % Predicted",
+          units: "%",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOSB_POSTREF
+        },
+        value
+      }
+    case PFTType.DLCOSB_LLN:
+      return {
+        meta: {
+          group: "Diffusion Capacity",
+          shortName: "Diff cap.CO LLN",
+          units: "cc/min/mmHg",
+          type: PFTType.DLCOSB_LLN
+        },
+        value
+      }
+    case PFTType.DLCOSB_ULN:
+      return {
+        meta: {
+          group: "Diffusion Capacity",
+          shortName: "Diff cap.CO ULN",
+          units: "cc/min/mmHg",
+          type: PFTType.DLCOSB_ULN
+        },
+        value
+      }
+    case PFTType.DLCOCSB_PRE:
+      return {
+        meta: {
+          loinc: "19913-3",
+          shortName: "Diff cap.CO Hgb adj",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_PRE
+        },
+        value
+      }
+    case PFTType.DLCOCSB_POST:
+      return {
+        meta: {
+          loinc: "19913-3",
+          shortName: "Diff cap.CO Hgb adj",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_POST
+        },
+        value
+      }
+    case PFTType.DLCOCSB_REF:
+      return {
+        meta: {
+          shortName: "Diff cap.CO Hgb adj Predicted",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_REF
+        },
+        value
+      }
+    case PFTType.DLCOCSB_PREREF:
+      return {
+        meta: {
+          shortName: "Diff cap.CO Hgb adj % Predicted",
+          units: "%",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_PREREF
+        },
+        value
+      }
+    case PFTType.DLCOCSB_POSTREF:
+      return {
+        meta: {
+          shortName: "Diff cap.CO Hgb adj % Predicted",
+          units: "%",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_POSTREF
+        },
+        value
+      }
+    case PFTType.DLCOCSB_LLN:
+      return {
+        meta: {
+          shortName: "Diff cap.CO Hgb adj LLN",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_LLN
+        },
+        value
+      }
+    case PFTType.DLCOCSB_ULN:
+      return {
+        meta: {
+          shortName: "Diff cap.CO Hgb adj ULN",
+          units: "cc/min/mmHg",
+          group: "Diffusion Capacity",
+          type: PFTType.DLCOCSB_ULN
+        },
+        value
+      }
+    case PFTType.IVCSB_PRE:
+      return {
+        meta: {
+          shortName: "Inspiratory Vital Capacity",
+          group: "Diffusion Capacity",
+          units: "L",
+          type: PFTType.IVCSB_PRE
+        },
+        value
+      }
+    case PFTType.IVCSB_POST:
+      return {
+        meta: {
+          shortName: "Inspiratory Vital Capacity",
+          group: "Diffusion Capacity",
+          units: "L",
+          type: PFTType.IVCSB_POST
+        },
+        value
+      }
+    case PFTType.IVCSB_REF:
+      return {
+        meta: {
+          shortName: "Inspiratory Cital Capacity Predicted",
+          group: "Diffusion Capacity",
+          units: "L",
+          type: PFTType.IVCSB_REF
+        },
+        value
+      }
+    case PFTType.IVCSB_PREREF:
+      return {
+        meta: {
+          shortName: "Inspiratory Cital Capacity % Predicted",
+          group: "Diffusion Capacity",
+          units: "L",
+          type: PFTType.IVCSB_PREREF
+        },
+        value
+      }
+    case PFTType.IVCSB_POSTREF:
+      return {
+        meta: {
+          shortName: "Inspiratory Cital Capacity % Predicted",
+          group: "Diffusion Capacity",
+          units: "L",
+          type: PFTType.IVCSB_POSTREF
+        },
+        value
+      }
+    case PFTType.IVCSB_LLN:
+      return {
+        meta: {
+          shortName: "Inspiratory Cital Capacity LLN",
+          group: "Diffusion Capacity",
+          units: "L",
+          type: PFTType.IVCSB_LLN
+        },
+        value
+      }
+    case PFTType.IVCSB_ULN:
+      return {
+        meta: {
+          shortName: "Inspiratory Cital Capacity ULN",
+          units: "L",
+          group: "Diffusion Capacity",
+          type: PFTType.IVCSB_ULN
+        },
+        value
+      }
+    case PFTType.DLVA_PRE:
+      return {
+        meta: {
+          loinc: "19916-6",
+          shortName: "Diff cap/Alv vol",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_PRE
+        },
+        value
+      }
+    case PFTType.DLVA_POST:
+      return {
+        meta: {
+          loinc: "19916-6",
+          shortName: "Diff cap/Alv vol",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_POST
+        },
+        value
+      }
+    case PFTType.DLVA_REF:
+      return {
+        meta: {
+          loinc: "19915-8",
+          shortName: "Diff cap/Alv vol Predicted",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_REF
+        },
+        value
+      }
+    case PFTType.DLVA_PREREF:
+      return {
+        meta: {
+          shortName: "Diff cap/Alv vol % Predicted",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_PREREF
+        },
+        value
+      }
+    case PFTType.DLVA_POSTREF:
+      return {
+        meta: {
+          shortName: "Diff cap/Alv vol % Predicted",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_POSTREF
+        },
+        value
+      }
+    case PFTType.DLVA_LLN:
+      return {
+        meta: {
+          shortName: "Diff cap/Alv vol LLN",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_LLN
+        },
+        value
+      }
+    case PFTType.DLVA_ULN:
+      return {
+        meta: {
+          shortName: "Diff cap/Alv ULN",
+          group: "Diffusion Capacity",
+          type: PFTType.DLVA_ULN
+        },
+        value
+      }
+    case PFTType.RT_COMMENT:
+      return {
+        meta: {
+          group: "Quality",
+          type: PFTType.RT_COMMENT,
+          shortName: "Technician Comment"
+        },
+        value
+      }
+  }
+}
+
+function predictTables(tables: string[][][]): [boolean, number[]][] {
+  return tables.map((table) => {
+    let columns: number[] = new Array(Rules.COLUMNS.length)
+    let score = 0
 
     table.forEach((row, rowIndex) => {
-      SPIROMETRY_RULES.forEach((rule) => {
-        if (row[0].match(rule)) spirometry += 1
-      })
-
-      DIFFUSION_RULES.forEach((rule) => {
-        if (row[0].match(rule)) diffusion += 1
+      [...Rules.SPIROMETRY, ...Rules.DIFFUSION].forEach((rule) => {
+        if (row[0].match(rule)) score += 1
       })
 
       // @note arbitrary cutoff to look at first three rows
       if (rowIndex <= 3) {
-        COLUMN_RULES.forEach((rule, ruleIndex) => {
+        Rules.COLUMNS.forEach((rule, ruleIndex) => {
           row.forEach((column, columnIndex) => {
-            if (column.match(rule)) {
-              columns[ruleIndex] = columnIndex
-            }
+            // If the rule matches
+            // AND there is no previous match for the rule
+            // AND there is no previous match for the columnIndex...
+            if (column.match(rule) && !columns[ruleIndex] && !columns.includes(columnIndex)) columns[ruleIndex] = columnIndex
           })
         })
       }
     })
-    
-    if (spirometry > diffusion) {
-      return ['spirometry', columns]
-    } else if (diffusion) {
-      return ['diffusion', columns]
+
+    if (score) {
+      return [true, columns]
     } else {
-      return [null, columns]
+      return [false, columns]
     }
   })
-
-  tables.forEach((table, index) => {
-    if (tablePredictions[index][0] == null || tablePredictions[index][1] == null) return;
-    const columns = tablePredictions[index][1]
-
-    table.forEach((row) => {
-      if (row[0].match(FVC_RULE)) {
-        if (columns[0]) detected.pft.spirometry.fvc.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.spirometry.fvc.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.spirometry.fvc.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.spirometry.fvc.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.spirometry.fvc.uln = parseValue(row[columns[4]])
-      }
-
-      if (row[0].match(FEV1_RULE)) {    
-        if (columns[0]) detected.pft.spirometry.fev1.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.spirometry.fev1.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.spirometry.fev1.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.spirometry.fev1.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.spirometry.fev1.uln = parseValue(row[columns[4]])
-      }
-
-      if (row[0].match(FEV1_FVC_RULE)) {          
-        if (columns[0]) detected.pft.spirometry.fev1fvc.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.spirometry.fev1fvc.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.spirometry.fev1fvc.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.spirometry.fev1fvc.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.spirometry.fev1fvc.uln = parseValue(row[columns[4]])
-      }
-
-      if (row[0].match(FEF25_75_RULE)) {          
-        if (columns[0]) detected.pft.spirometry.fef2575.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.spirometry.fef2575.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.spirometry.fef2575.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.spirometry.fef2575.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.spirometry.fef2575.uln = parseValue(row[columns[4]])
-      }
-
-      // @note don't bother with anything but pre/post since FET doesn't have the other values 
-      if (row[0].match(FET_RULE)) {          
-        if (columns[0]) detected.pft.spirometry.fet.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.spirometry.fet.post = parseValue(row[columns[1]])
-      }
-
-      if (row[0].match(DLCOSB_RULE)) {          
-        if (columns[0]) detected.pft.diffusion.dlcosb.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.diffusion.dlcosb.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.diffusion.dlcosb.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.diffusion.dlcosb.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.diffusion.dlcosb.uln = parseValue(row[columns[4]])
-      }
-
-      if (row[0].match(DLCOCSB_RULE)) {          
-        if (columns[0]) detected.pft.diffusion.dlcocsb.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.diffusion.dlcocsb.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.diffusion.dlcocsb.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.diffusion.dlcocsb.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.diffusion.dlcocsb.uln = parseValue(row[columns[4]])
-      }
-
-      if (row[0].match(IVCSB_RULE)) {          
-        if (columns[0]) detected.pft.diffusion.ivcsb.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.diffusion.ivcsb.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.diffusion.ivcsb.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.diffusion.ivcsb.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.diffusion.ivcsb.uln = parseValue(row[columns[4]])
-      }
-
-      if (row[0].match(DLVA_RULE)) {          
-        if (columns[0]) detected.pft.diffusion.dlva.pre = parseValue(row[columns[0]])
-        if (columns[1]) detected.pft.diffusion.dlva.post = parseValue(row[columns[1]])
-        if (columns[2]) detected.pft.diffusion.dlva.predicted = parseValue(row[columns[2]])
-        if (columns[3]) detected.pft.diffusion.dlva.lln = parseValue(row[columns[3]])
-        if (columns[4]) detected.pft.diffusion.dlva.uln = parseValue(row[columns[4]])
-      }
-    })
-  })
-  
-  const comment = detectComment (data)
-
-  if (comment) detected.pft.meta.comment = comment;
-
-  return detected;
 }
 
 function getTables(data: AnalyzeDocumentResponse) {
@@ -185,7 +762,7 @@ function buildTables(tableBlocks: Block[], blocks: { [key: string]: Block}) {
 }
 
 function findRowsColumns(table: Block, blocks: { [key: string]: Block}) {
-  let rows = []
+  let rows: string[][] = []
 
   table.Relationships?.forEach((relationship) => {
     if (relationship.Type == "CHILD") {
@@ -194,14 +771,16 @@ function findRowsColumns(table: Block, blocks: { [key: string]: Block}) {
         if (cell.BlockType == "CELL") {
           const rowIndex = cell.RowIndex
           const colIndex = cell.ColumnIndex
-          // @ts-ignore
+
+          // @note no-op if absent
+          if (rowIndex == undefined || colIndex == undefined) return
+
           if (rowIndex > rows.length) rows.push([])
-          // @ts-ignore
           rows[rowIndex - 1][colIndex - 1] = findText(cell, blocks)
         }
       })
     }
-    
+
   })
 
   return rows;
@@ -226,11 +805,11 @@ function findText(cell: Block, blocks: { [key: string]: Block}): string {
       }
     })
   }
-  
+
   return text;
 }
 
-function parseValue(value): number | null {
+function parseValue(value: string): number | null {
   if (isNaN(parseFloat(value))) {
     return null
   } else {
