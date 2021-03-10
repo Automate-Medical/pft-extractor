@@ -1,12 +1,3 @@
-export interface PFT {
-  elements: PFTElement[]
-}
-
-export interface PFTElement {
-  meta: ElementMeta,
-  value: number | string
-}
-
 export interface ElementMeta {
   loinc?: string,
   shortName?: string,
@@ -16,6 +7,15 @@ export interface ElementMeta {
 }
 
 export type PFTElementGroup = "Spirometry" | "Diffusion Capacity" | "Quality"
+
+export interface PFT {
+  elements: PFTElement[]
+}
+
+export interface PFTElement {
+  meta: ElementMeta,
+  value: number | string
+}
 
 export enum PFTElementType {
   FVC_PRE = "FVC_PRE",

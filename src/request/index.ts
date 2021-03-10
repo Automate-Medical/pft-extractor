@@ -7,15 +7,15 @@ const S3 = new AWS.S3({});
 export const listEgress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
   console.info("initializing list-egress");
 
-  if (!process.env.S3_BUCKET_EGRESS) {
+  if (!process.env.S3_BUCKET) {
     return formatResponse("test unsuccessful")
   }
 
-  const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET_EGRESS }).promise()
+  const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "egress/" }).promise()
 
   const items = list.Contents?.map(item => {
     return {
-      key: item.Key,
+      key: item.Key?.split("/")[1],
       lastModified: item.LastModified,
       stage: "Processed"
     }
@@ -30,15 +30,15 @@ export const listEgress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProx
 export const listIngress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
   console.info("initializing list-ingress");
 
-  if (!process.env.S3_BUCKET_INGRESS) {
+  if (!process.env.S3_BUCKET) {
     return formatResponse("test unsuccessful")
   }
 
-  const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET_INGRESS }).promise()
+  const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "ingress/" }).promise()
 
   const items = list.Contents?.map(item => {
     return {
-      key: item.Key,
+      key: item.Key?.split("/")[1],
       lastModified: item.LastModified,
       stage: "Uploaded"
     }
@@ -52,53 +52,73 @@ export const listIngress: APIGatewayProxyHandlerV2 = async (event: APIGatewayPro
 export const prepareIngress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
   console.info("initializing prepare-ingress");
 
-  if (!process.env.S3_BUCKET_INGRESS || !event.body) {
+  if (!process.env.S3_BUCKET || !event.body) {
     return formatResponse("test unsuccessful")
   }
 
   const { key } = JSON.parse(event.body)
- 
+
   const params = {
     Expires: 60,
-    Bucket: process.env.S3_BUCKET_INGRESS,
+    Bucket: process.env.S3_BUCKET,
     Conditions: [["content-length-range", 100, 10000000]], // 100Byte - 10MB
     Fields: {
       "Content-Type": "application/pdf",
-      key
+      key: `ingress/${key}`
     }
   }
 
   const signedUrl = S3.createPresignedPost(params)
-  
+
   return formatResponse(JSON.stringify({
     signedUrl
-  })) 
+  }))
 }
 
 export const egressResult: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
   console.info("initializing egress-result");
 
-  if (!process.env.S3_BUCKET_EGRESS || !event.pathParameters?.key) {
+  if (!process.env.S3_BUCKET || !event.pathParameters?.key) {
     return formatResponse("test unsuccessful")
   }
 
   const result = await S3.getObject({
-    Bucket: process.env.S3_BUCKET_EGRESS,
-    Key: event.pathParameters.key
+    Bucket: process.env.S3_BUCKET,
+    Key: `egress/${event.pathParameters.key}`
   }).promise()
 
   // @ts-ignore
   const egress = JSON.parse(Buffer.from(result.Body).toString("utf8"))
 
   const ingressUrl = await S3.getSignedUrl("getObject", {
-    Bucket: process.env.S3_BUCKET_INGRESS,
-    Key: event.pathParameters.key
+    Bucket: process.env.S3_BUCKET,
+    Key: `ingress/${event.pathParameters.key}`
   })
 
   return formatResponse(JSON.stringify({
     egress,
     ingressUrl
-  })) 
+  }))
+}
+
+export const interpretation: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
+  console.info("initializing interpretation");
+
+  if (!process.env.S3_BUCKET || !event.pathParameters?.key) {
+    return formatResponse("test unsuccessful")
+  }
+
+  const result = await S3.getObject({
+    Bucket: process.env.S3_BUCKET,
+    Key: `interpretation/${event.pathParameters.key}`
+  }).promise()
+
+  // @ts-ignore
+  const interpretation = JSON.parse(Buffer.from(result.Body).toString("utf8"))
+
+  return formatResponse(JSON.stringify({
+    interpretation
+  }))
 }
 
 function formatResponse(body: string){

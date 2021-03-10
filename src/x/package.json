@@ -9,10 +9,10 @@
   },
   "dependencies": {
     "@blueprintjs/core": "^3.38.2",
-    "next": "10.0.6",
+    "next": "^10.0.6",
     "react": "17.0.1",
     "react-dom": "17.0.1",
-    "swr": "^0.4.1",
+    "swr": "^0.5.0",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
