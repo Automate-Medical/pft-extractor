@@ -18,17 +18,17 @@ module "lambda_function_transform" {
     s3GetObject = {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
-      resources = ["${module.s3_bucket_textract_output.this_s3_bucket_arn}/*"]
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/save-textract-output/*"]
     },
     s3PutObject = {
       effect    = "Allow",
       actions   = ["s3:PutObject"],
-      resources = ["${module.s3_bucket_egress.this_s3_bucket_arn}/*"]
-    } 
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/egress/*"]
+    }
   }
 
   environment_variables = {
-    "S3_BUCKET" = module.s3_bucket_egress.this_s3_bucket_id
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
   source_path = [
@@ -43,39 +43,47 @@ module "lambda_function_transform" {
   ]
 }
 
-module "s3_notify_lambda_function_transform" {
-  source = "terraform-aws-modules/s3-bucket/aws//modules/notification"
-  version = "1.17.0"
+module "lambda_function_interpret" {
+  source = "terraform-aws-modules/lambda/aws"
+  version = "1.37.0"
 
-  bucket = module.s3_bucket_textract_output.this_s3_bucket_id
-
-  lambda_notifications = {
-    lambda = {
-      function_arn  = module.lambda_function_transform.this_lambda_function_arn
-      function_name = module.lambda_function_transform.this_lambda_function_name
-      events        = ["s3:ObjectCreated:Put"]
-    }
-  }
-}
-
-module "s3_bucket_egress" {
-  source = "terraform-aws-modules/s3-bucket/aws"
-
-  bucket = "pft-extractor-egress"
-  acl    = "private"
-
-  force_destroy = true
-
-  versioning = {
-    enabled = false
-  }
+  function_name = "interpret"
+  description   = "Function to provide an automated interpretation of a normalized PFT"
+  handler       = "index.handler"
+  runtime       = "nodejs14.x"
 
   tags = {
     Owner = "pft-extractor"
   }
 
-  // @TODO log
-  // @TODO SSE
-  // @TODO public access?
-  // @TODO versioning?
+  publish = true
+
+  attach_policy_statements = true
+  policy_statements = {
+    s3GetObject = {
+      effect    = "Allow",
+      actions   = ["s3:GetObject"],
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/egress/*"]
+    },
+    s3PutObject = {
+      effect    = "Allow",
+      actions   = ["s3:PutObject"],
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/interpretation/*"]
+    }
+  }
+
+  environment_variables = {
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
+  }
+
+  source_path = [
+    {
+      path = "${path.module}/src/interpret"
+      commands = [
+        "npm run build",
+        "cd dist",
+        ":zip"
+      ]
+    }
+  ]
 }

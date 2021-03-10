@@ -4,25 +4,25 @@ import Head from 'next/head'
 import useSWR from 'swr'
 import api from '../../lib/api'
 
-import styles from "./[key].module.scss"
+import styles from "./[uuid].module.scss"
 
-import { Button, ButtonGroup, Card, H3, H4, H5, HTMLTable, InputGroup, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core'
+import { AnchorButton, Button, ButtonGroup, Card, H3, H4, H5, HTMLTable, InputGroup, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core'
 import { PFT, PFTElementType as PFTType, PFTElement  } from '../../types'
 import { useRouter } from 'next/router'
 
-interface IResponseData {
+interface IEgressResponseData {
   egress: PFT,
   ingressUrl: string
 }
 
-function Structured({ data }: { data: IResponseData }) {
+function Structured({ data }: { data: IEgressResponseData }) {
   const [groupFilter, setGroupFilter] = useState<string>(null)
   const [typeFilter, setTypeFilter] = useState<string>('')
 
   function FilterButton({ group }) {
     return (
       <Button
-        onClick={(e) => {
+        onClick={() => {
           groupFilter == group ? setGroupFilter(null) : setGroupFilter(group)
         }}
         active={groupFilter == group ? true : false}>
@@ -43,7 +43,7 @@ function Structured({ data }: { data: IResponseData }) {
           </ButtonGroup>
         </section>
         <section>
-          <H5>Filter by key</H5>
+          <H5>Filter by Key</H5>
           <InputGroup
               key={`type-filter`}
               asyncControl={true}
@@ -86,22 +86,47 @@ function Structured({ data }: { data: IResponseData }) {
   )
 }
 
+function Interpretation({ uuid }) {
+  const { data, error }: {
+    data?: { interpretation },
+    error?: any
+  } = useSWR(uuid ? `/interpretation/${uuid}` : null, api)
+
+  return (
+    <Fragment>
+      <ul className={styles.StepProgress}>
+        { data?.interpretation?.map((step: any) => {
+          return (
+            <li className={styles.StepProgressItem}><strong>{step.label}</strong></li>
+          )
+        })}
+
+      </ul>
+
+      <pre className={styles.Pre}>
+        {JSON.stringify(data, null, 2) }
+      </pre>
+    </Fragment>
+
+  )
+}
+
 export default function Result() {
   const router = useRouter()
-  const { key } = router.query
+  const { uuid } = router.query
 
   const { data, error }: {
-    data?: IResponseData,
+    data?: IEgressResponseData,
     error?: any
-  } = useSWR(key ? `/egress/${key}` : null, api)
+  } = useSWR(uuid ? `/egress/${uuid}` : null, api)
 
   function Stages() {
     return (
       <Fragment>
         <H4>Extraction Stages</H4>
-        <p><Tag>Ingress</Tag> <code> s3://pft-extractor-ingress/{key}</code></p>
-        <p><Tag>Textract</Tag><code> s3://pft-extractor-textract/{key}</code></p>
-        <p><Tag>Egress</Tag><code> s3://pft-extractor-egress/{key}</code></p>
+        <p><Tag>Ingress</Tag> <code> s3://pft-extractor-ingress/{uuid}</code></p>
+        <p><Tag>Textract</Tag><code> s3://pft-extractor-textract/{uuid}</code></p>
+        <p><Tag>Egress</Tag><code> s3://pft-extractor-egress/{uuid}</code></p>
       </Fragment>
     )
   }
@@ -109,9 +134,10 @@ export default function Result() {
   function Data() {
     return (
       <Fragment>
-        <H4>Extraction Result</H4>
+        <H4>Extraction Result <AnchorButton href={data?.ingressUrl} text="Original" rightIcon="folder-shared-open" /></H4>
         <Tabs id="Tabs" defaultSelectedTabId="structured">
           <Tab id="structured" title="Structured Data" panel={<Structured data={data}/>} />
+          <Tab id="interpretation" title="Interpretation" panel={<Interpretation uuid={uuid} />} />
           <Tab id="raw" title="Raw JSON" panel={<pre className={styles.Pre}>{JSON.stringify(data, null, 2) }</pre>} />
           <Tab id="stages" title="Extraction Stages" panel={<Stages />} />
         </Tabs>
@@ -127,15 +153,7 @@ export default function Result() {
       <main>
         <section className={styles.Main}>
           <Card>
-            <object
-              type="application/pdf"
-              data={data ? data.ingressUrl : null}
-              width="500"
-              height="1000"
-            ></object>
-          </Card>
-          <Card>
-            <H3>Key: {key}</H3>
+            <H3>uuid: {uuid}</H3>
             {data ? <Data />: <Spinner />}
           </Card>
         </section>

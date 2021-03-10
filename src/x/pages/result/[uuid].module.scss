@@ -1,0 +1,61 @@
+@import "../../Global.scss";
+
+.Main {
+  display: grid;
+  grid-gap: $grid-gap;
+  margin: 20px;
+  grid-template-columns: 1fr
+}
+
+.Filters {
+  display: grid;
+  grid-gap: $grid-gap;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 20px;
+}
+
+.Table {
+  width: 100%;
+
+  th {
+    white-space: nowrap;
+  }
+}
+
+.Pre {
+  white-space: pre-wrap;
+}
+
+.StepProgress {
+  position: relative;
+  padding-left: 45px;
+  list-style: none;
+}
+
+.StepProgressItem {
+  position: relative;
+  counter-increment: list;
+}
+.StepProgressItem:not(:last-child) {
+  padding-bottom: 20px;
+}
+
+.StepProgressItem::after {
+  content: "✔";
+  display: inline-block;
+  position: absolute;
+  top: 0;
+  left: -37px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 13px;
+  color: #FFF;
+  text-align: center;
+  border: 2px solid green;
+  background-color: green;
+}
+
+.StepProgress strong {
+  display: block;
+}

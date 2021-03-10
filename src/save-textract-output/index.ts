@@ -31,7 +31,7 @@ export const handler: SNSHandler = async (event: SNSEvent, context: Context, cal
 
     const params = {
       Bucket: process.env.S3_BUCKET,
-      Key: `${Message.DocumentLocation.S3ObjectName}`,
+      Key: `save-textract-output/${Message.DocumentLocation.S3ObjectName.split("/")[1]}`,
       Body: JSON.stringify(job),
       ContentType: 'application/json; charset=utf-8',
     };

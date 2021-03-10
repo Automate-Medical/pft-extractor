@@ -1,13 +1,12 @@
 import AWS from "aws-sdk";
 import { S3Event, Context, S3Handler, Callback } from 'aws-lambda';
-import transform from './transform'
+import interpret from './interpret'
 
 const S3 = new AWS.S3({});
-const Textract = new AWS.Textract({})
 
 // @todo make use of callback?
 export const handler: S3Handler = async (event: S3Event, context: Context, callback: Callback) => {
-  console.info("Initializing lambda-function-transform");
+  console.info("Initializing lambda-function-interpret");
 
   if (!process.env.S3_BUCKET) {
     return callback("S3_BUCKET")
@@ -21,12 +20,12 @@ export const handler: S3Handler = async (event: S3Event, context: Context, callb
     // @ts-ignore
     const json = JSON.parse(response.Body.toString())
 
-    const transformation = transform(json)
+    const interpretation = interpret(json)
 
     const params = {
       Bucket: process.env.S3_BUCKET,
-      Key: `egress/${Key.split("/")[1]}`,
-      Body: JSON.stringify(transformation),
+      Key: `interpretation/${Key.split("/")[1]}`,
+      Body: JSON.stringify(interpretation),
       ContentType: 'application/json; charset=utf-8',
     };
 

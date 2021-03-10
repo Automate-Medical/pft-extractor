@@ -1,7 +1,7 @@
-module "s3_bucket_ingress" {
+module "s3_bucket" {
   source = "terraform-aws-modules/s3-bucket/aws"
 
-  bucket = "pft-extractor-ingress"
+  bucket = "pft-x"
   acl    = "private"
 
   force_destroy = true
@@ -30,6 +30,38 @@ module "s3_bucket_ingress" {
   ]
 }
 
+# module "s3_bucket_ingress" {
+#   source = "terraform-aws-modules/s3-bucket/aws"
+
+#   bucket = "pft-extractor-ingress"
+#   acl    = "private"
+
+#   force_destroy = true
+
+#   versioning = {
+#     enabled = false
+#   }
+
+#   tags = {
+#     Owner = "pft-extractor"
+#   }
+
+#   // @TODO log
+#   // @TODO SSE
+#   // @TODO public access? <- write only?
+#   // @TODO versioning?
+
+#   cors_rule = [
+#     {
+#       allowed_methods = ["PUT", "POST", "GET"]
+#       allowed_origins = ["*"] // @TODO
+#       allowed_headers = ["*"]
+#       expose_headers  = []
+#       max_age_seconds = 3000
+#     }
+#   ]
+# }
+
 module "lambda_function_ingress" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
@@ -38,7 +70,7 @@ module "lambda_function_ingress" {
   description   = "Ingress function to call Textract on new PFTs being uploaded"
   handler       = "index.handler"
   runtime       = "nodejs14.x"
-  
+
   tags = {
     Owner = "pft-extractor"
   }
@@ -64,13 +96,8 @@ module "lambda_function_ingress" {
     s3GetObject = {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
-      resources = ["${module.s3_bucket_ingress.this_s3_bucket_arn}/*"]
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
     }
-    # kmsDecrypt = {
-    #   effect    = "Allow",
-    #   actions   = ["kms:Decrypt"],
-    #   resources = ["${aws_kms_key.s3_bucket_key.arn}"]
-    # }
   }
 
   environment_variables = {
@@ -79,42 +106,57 @@ module "lambda_function_ingress" {
   }
 }
 
-module "s3_notify_lambda_function_ingress" {
+module "s3_notify_lambda_functions" {
   source = "terraform-aws-modules/s3-bucket/aws//modules/notification"
   version = "1.17.0"
 
-  bucket = module.s3_bucket_ingress.this_s3_bucket_id
+  bucket = module.s3_bucket.this_s3_bucket_id
 
   lambda_notifications = {
-    lambda = {
+    ingress = {
       function_arn  = module.lambda_function_ingress.this_lambda_function_arn
       function_name = module.lambda_function_ingress.this_lambda_function_name
       events        = ["s3:ObjectCreated:*"]
+      filter_prefix = "ingress/"
+    }
+
+    saveTextractOutput = {
+      function_arn  = module.lambda_function_transform.this_lambda_function_arn
+      function_name = module.lambda_function_transform.this_lambda_function_name
+      events        = ["s3:ObjectCreated:Put"]
+      filter_prefix = "save-textract-output/"
+    }
+
+    egress = {
+      function_arn  = module.lambda_function_interpret.this_lambda_function_arn
+      function_name = module.lambda_function_interpret.this_lambda_function_name
+      events        = ["s3:ObjectCreated:Put"]
+      filter_prefix = "egress/"
     }
   }
 }
 
-module "s3_bucket_textract_output" {
-  source = "terraform-aws-modules/s3-bucket/aws"
+# module "s3_bucket_textract_output" {
+#   source = "terraform-aws-modules/s3-bucket/aws"
 
-  bucket = "pft-extractor-textract-output"
-  acl    = "private"
+#   bucket = "pft-extractor-textract-output"
+#   acl    = "private"
 
-  force_destroy = true
+#   force_destroy = true
 
-  versioning = {
-    enabled = false
-  }
+#   versioning = {
+#     enabled = false
+#   }
 
-  tags = {
-    Owner = "pft-extractor"
-  }
+#   tags = {
+#     Owner = "pft-extractor"
+#   }
 
-  // @TODO log
-  // @TODO SSE
-  // @TODO public access? 
-  // @TODO versioning?
-}
+#   // @TODO log
+#   // @TODO SSE
+#   // @TODO public access?
+#   // @TODO versioning?
+# }
 
 module "lambda_function_save_textract_output" {
   source = "terraform-aws-modules/lambda/aws"
@@ -139,7 +181,7 @@ module "lambda_function_save_textract_output" {
   }
 
   environment_variables = {
-    "S3_BUCKET" = module.s3_bucket_textract_output.this_s3_bucket_id
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
   attach_policy_statements = true
@@ -152,7 +194,7 @@ module "lambda_function_save_textract_output" {
     s3PutObject = {
       effect    = "Allow",
       actions   = ["s3:PutObject"],
-      resources = ["${module.s3_bucket_textract_output.this_s3_bucket_arn}/*"]
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/save-textract-output/*"]
     }
   }
 

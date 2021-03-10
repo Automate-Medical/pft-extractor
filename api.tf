@@ -25,15 +25,15 @@ module "lambda_function_list_ingress" {
     s3ListBucket = {
       effect    = "Allow",
       actions   = ["s3:ListBucket"],
-      resources = ["${module.s3_bucket_ingress.this_s3_bucket_arn}"]
+      resources = [module.s3_bucket.this_s3_bucket_arn]
     }
   }
 
   environment_variables = {
-    "S3_BUCKET_INGRESS" = module.s3_bucket_ingress.this_s3_bucket_id
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/src/api/dist"
+  source_path = "${path.module}/src/request/dist"
   # source_path = [
   #   {
   #     path = "${path.module}/src/api"
@@ -73,16 +73,16 @@ module "lambda_function_list_egress" {
     s3ListBucket = {
       effect    = "Allow",
       actions   = ["s3:ListBucket"],
-      resources = ["${module.s3_bucket_egress.this_s3_bucket_arn}"]
+      resources = [module.s3_bucket.this_s3_bucket_arn]
     }
   }
 
   environment_variables = {
-    "S3_BUCKET_EGRESS" = module.s3_bucket_egress.this_s3_bucket_id
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
   // @TODO
-  source_path = "${path.module}/src/api/dist"
+  source_path = "${path.module}/src/request/dist"
   # source_path = [
   #   {
   #     path = "${path.module}/src/api"
@@ -122,16 +122,16 @@ module "lambda_function_prepare_ingress" {
     s3PutObject = {
       effect    = "Allow",
       actions   = ["s3:PutObject"],
-      resources = ["${module.s3_bucket_ingress.this_s3_bucket_arn}/*"]
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
     }
   }
 
   environment_variables = {
-    "S3_BUCKET_INGRESS" = module.s3_bucket_ingress.this_s3_bucket_id
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
   // @TODO
-  source_path = "${path.module}/src/api/dist"
+  source_path = "${path.module}/src/request/dist"
   # source_path = [
   #   {
   #     path = "${path.module}/src/api"
@@ -171,29 +171,67 @@ module "lambda_function_egress_result" {
     s3GetEgressObject = {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
-      resources = ["${module.s3_bucket_egress.this_s3_bucket_arn}/*"]
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/egress/*"]
     },
     s3GetIngressObject = {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
-      resources = ["${module.s3_bucket_ingress.this_s3_bucket_arn}/*"]
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
     }
   }
 
   environment_variables = {
-    "S3_BUCKET_EGRESS" = module.s3_bucket_egress.this_s3_bucket_id
-    "S3_BUCKET_INGRESS" = module.s3_bucket_ingress.this_s3_bucket_id
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
   // @TODO
-  source_path = "${path.module}/src/api/dist"
+  source_path = "${path.module}/src/request/dist"
+}
+
+module "lambda_function_interpretation" {
+  source = "terraform-aws-modules/lambda/aws"
+  version = "1.37.0"
+
+  function_name = "interpretation"
+  description   = "Function to return the end result of the interpretation process"
+  handler       = "index.interpretation"
+  runtime       = "nodejs14.x"
+
+  tags = {
+    Owner = "pft-extractor"
+  }
+
+  publish = true
+
+  allowed_triggers = {
+    AllowExecutionFromAPIGateway = {
+      service    = "apigateway"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/interpretation/*"
+    }
+  }
+
+  attach_policy_statements = true
+  policy_statements = {
+    s3GetInterpretationObject = {
+      effect    = "Allow",
+      actions   = ["s3:GetObject"],
+      resources = ["${module.s3_bucket.this_s3_bucket_arn}/interpretation/*"]
+    }
+  }
+
+  environment_variables = {
+    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
+  }
+
+  // @TODO
+  source_path = "${path.module}/src/request/dist"
 }
 
 module "lambda_function_authorizer" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "authorizer"
+  function_name = "authorize"
   description   = "Function to authorize requests to client api gateway"
   handler       = "index.handler"
   runtime       = "nodejs14.x"
@@ -207,13 +245,13 @@ module "lambda_function_authorizer" {
   allowed_triggers = {
     AllowExecutionFromAPIGateway = {
       service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/*"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/authorizers/${aws_apigatewayv2_authorizer.client_api_authorizer.id}"
     }
   }
 
   source_path = [
     {
-      path = "${path.module}/src/authorizer"
+      path = "${path.module}/src/authorize"
       commands = [
         "npm run build",
         "cd dist",
@@ -224,7 +262,8 @@ module "lambda_function_authorizer" {
 }
 
 module "client_api" {
-  source = "../../../misc/terraform-aws-apigateway-v2"
+  source  = "terraform-aws-modules/apigateway-v2/aws"
+  version = "0.10.0"
 
   name          = "client-api"
   description   = "A gateway for the X client"
@@ -250,29 +289,36 @@ module "client_api" {
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
       authorization_type     = "CUSTOM"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id 
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "GET /list-egress" = {
       lambda_arn             = module.lambda_function_list_egress.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
       authorization_type     = "CUSTOM"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id 
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "POST /prepare-ingress" = {
       lambda_arn             = module.lambda_function_prepare_ingress.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
       authorization_type     = "CUSTOM"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id 
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "GET /egress/{key}" = {
       lambda_arn             = module.lambda_function_egress_result.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
       authorization_type     = "CUSTOM"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id 
-    } 
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
+    },
+    "GET /interpretation/{key}" = {
+      lambda_arn             = module.lambda_function_interpretation.this_lambda_function_arn
+      payload_format_version = "2.0"
+      timeout_milliseconds   = 12000
+      authorization_type     = "CUSTOM"
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
+    }
   }
 
   tags = {
@@ -283,12 +329,12 @@ module "client_api" {
 # @NOTE  Not supported by AWS Terraform module yet
 ## Therefore, must be manually attached in console... not great, to revisit
 resource "aws_apigatewayv2_authorizer" "client_api_authorizer" {
-  api_id           = module.client_api.this_apigatewayv2_api_id
-  authorizer_type  = "REQUEST"
-  authorizer_uri   = module.lambda_function_authorizer.this_lambda_function_invoke_arn
-  identity_sources = ["$request.header.Authorization"]
-  name             = "client-api-authorizer"
-  enable_simple_responses = true
+  api_id                            = module.client_api.this_apigatewayv2_api_id
+  authorizer_type                   = "REQUEST"
+  authorizer_uri                    = module.lambda_function_authorizer.this_lambda_function_invoke_arn
+  identity_sources                  = ["$request.header.Authorization"]
+  name                              = "client-api-authorizer"
+  enable_simple_responses           = true
   authorizer_payload_format_version = "2.0"
 }
 

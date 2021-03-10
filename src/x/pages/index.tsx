@@ -26,15 +26,15 @@ function UploadFragment() {
     asyncForEach(Array.from(event.target.files), async (file) => {
       const key = uuid()
       const { signedUrl } = await api("/prepare-ingress", "POST", JSON.stringify({ key }))
-  
+
       let body = new FormData()
       Object.keys(signedUrl.fields).forEach(key => body.append(key, signedUrl.fields[key]))
       // @ts-ignore
       body.append('file', file)
-      
+
       await fetch(signedUrl.url, { method: "POST", body })
     }).finally(() => {
-      setUploading(false) 
+      setUploading(false)
     })
   }
 
@@ -82,7 +82,7 @@ export default function Home() {
       </tr>
     )
   }
-  
+
   return (
     <main className={styles.Main}>
       <section>
@@ -104,12 +104,12 @@ export default function Home() {
             <thead>
               <tr>
                 <th style={{width: 50}}></th>
-                <th>UUID</th>  
+                <th>UUID</th>
                 <th>Stage</th>
-                <th>Uploaded</th> 
+                <th>Uploaded</th>
               </tr>
             </thead>
-            
+
             <tbody>
               { result.map(pft => {
                 return (<Row pft={pft} key={pft.key} />)
