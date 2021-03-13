@@ -1,8 +1,13 @@
-import { ReactElement } from "react";
+import React, { ReactElement } from "react";
 import Head from "next/head";
 import Nav from './Nav'
 
 import styles from './Layout.module.scss'
+import Amplify from "aws-amplify";
+import { AmplifyAuthenticator, AmplifySignIn } from "@aws-amplify/ui-react";
+import AmplifyConfig from '../lib/amplify-config';
+
+Amplify.configure(AmplifyConfig);
 
 const Layout = ({ children }: { children: ReactElement }) => (
   <section className={styles.Main}>
@@ -13,11 +18,19 @@ const Layout = ({ children }: { children: ReactElement }) => (
       <meta name="theme-color" content="#000000" />
     </Head>
 
-    <Nav />
+    <AmplifyAuthenticator>
+      <AmplifySignIn
+        hideSignUp={true}
+        slot="sign-in"
+      ></AmplifySignIn>
 
-    { children }
+      <Nav />
 
-    {/* <Footer /> */}
+      { children }
+
+      {/* <Footer /> */}
+    </AmplifyAuthenticator>
+
   </section>
 )
 

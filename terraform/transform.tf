@@ -8,7 +8,7 @@ module "lambda_function_transform" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -33,7 +33,7 @@ module "lambda_function_transform" {
 
   source_path = [
     {
-      path = "${path.module}/src/transform"
+      path = "${path.module}/../src/transform"
       commands = [
         "npm run build",
         "cd dist",
@@ -53,7 +53,7 @@ module "lambda_function_interpret" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -78,7 +78,7 @@ module "lambda_function_interpret" {
 
   source_path = [
     {
-      path = "${path.module}/src/interpret"
+      path = "${path.module}/../src/interpret"
       commands = [
         "npm run build",
         "cd dist",

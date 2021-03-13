@@ -1,11 +1,17 @@
+import Amplify, { Auth } from "aws-amplify"
+import AmplifyConfig from "./amplify-config";
+
+Amplify.configure(AmplifyConfig);
+
 export default async(url: string, method = "GET", body = null) => {
-  // @TODO move out
-  const r = await fetch(`https://7njbxcubeb.execute-api.ca-central-1.amazonaws.com${url}`, {
+  // @ts-ignore
+  const { accessToken } = await Auth.currentSession()
+
+  const r = await fetch(`${process.env.NEXT_PUBLIC_API_ENDPOINT}${url}`, {
     method,
     body,
-    // @TODO
     headers: new Headers({
-      'Authorization': 'test'
+      'Authorization': accessToken.jwtToken
     })
   })
   return await r.json()

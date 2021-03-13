@@ -1,10 +1,9 @@
-import Head from 'next/head'
 import Link from 'next/link'
 import React, { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import useSWR from 'swr'
 import api from '../lib/api'
-import { Card, Elevation, H1, H2, H3, H4, HTMLTable, Intent, Spinner, Tag } from '@blueprintjs/core';
+import { Button, Card, Elevation, H1, H2, H3, H4, HTMLTable, Intent, Spinner, Tag } from '@blueprintjs/core';
 
 import styles from "./index.module.scss"
 import "normalize.css";
