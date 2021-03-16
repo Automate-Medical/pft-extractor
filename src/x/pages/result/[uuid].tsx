@@ -7,7 +7,7 @@ import api from '../../lib/api'
 import styles from "./[uuid].module.scss"
 
 import { AnchorButton, Button, ButtonGroup, Card, H3, H4, H5, HTMLTable, InputGroup, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core'
-import { PFT, PFTElementType as PFTType, PFTElement  } from '../../types'
+import { PFT, PFTElementType as PFTType, PFTElement  } from '../../../types'
 import { useRouter } from 'next/router'
 
 interface IEgressResponseData {

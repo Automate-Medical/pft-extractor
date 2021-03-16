@@ -1,5 +1,7 @@
 .Main {
-  display: flex;
-  flex-flow: column;
   height: 100vh;
+
+  --amplify-primary-color: #255350;
+  --amplify-primary-tint: #255350;
+  --amplify-primary-shade: #255350;
 }

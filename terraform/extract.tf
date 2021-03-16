@@ -1,7 +1,7 @@
 module "s3_bucket" {
   source = "terraform-aws-modules/s3-bucket/aws"
 
-  bucket = "pft-x"
+  bucket = "${var.deployment_name}-bucket"
   acl    = "private"
 
   force_destroy = true
@@ -11,7 +11,7 @@ module "s3_bucket" {
   }
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   // @TODO log
@@ -43,7 +43,7 @@ module "s3_bucket" {
 #   }
 
 #   tags = {
-#     Owner = "pft-extractor"
+#     Product = var.deployment_name
 #   }
 
 #   // @TODO log
@@ -72,12 +72,12 @@ module "lambda_function_ingress" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   source_path = [
     {
-      path = "${path.module}/src/ingress"
+      path = "${path.module}/../src/ingress"
       commands = [
         "npm run build",
         "cd dist",
@@ -149,7 +149,7 @@ module "s3_notify_lambda_functions" {
 #   }
 
 #   tags = {
-#     Owner = "pft-extractor"
+#     Product = var.deployment_name
 #   }
 
 #   // @TODO log
@@ -168,7 +168,7 @@ module "lambda_function_save_textract_output" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -200,7 +200,7 @@ module "lambda_function_save_textract_output" {
 
   source_path = [
     {
-      path = "${path.module}/src/save-textract-output"
+      path = "${path.module}/../src/save-textract-output"
       commands = [
         "npm run build",
         "cd dist",
@@ -218,7 +218,7 @@ module "sns_textract_job_completed" {
   display_name = "pft-extractor-job-completed"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 }
 
@@ -241,6 +241,6 @@ module "textract_service_role" {
   number_of_custom_role_policy_arns = 1
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 }

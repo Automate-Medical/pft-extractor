@@ -3,6 +3,8 @@ import { Navbar, Alignment, Tag, Intent } from "@blueprintjs/core";
 
 import styles from './Nav.module.scss'
 import Logo from './Logo';
+import React from 'react';
+import { AmplifySignOut } from '@aws-amplify/ui-react';
 
 const Nav = () => {
   return (
@@ -19,7 +21,8 @@ const Nav = () => {
         </Navbar.Group>
         <Navbar.Group align={Alignment.RIGHT}>
           {/* @TODO this is stubbed should be real */}
-          <Tag intent={Intent.NONE}>v0.1.0</Tag>
+
+          <AmplifySignOut />
         </Navbar.Group>
       </div>
     </Navbar>

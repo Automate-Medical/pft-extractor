@@ -8,7 +8,7 @@ module "lambda_function_list_ingress" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -33,10 +33,10 @@ module "lambda_function_list_ingress" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/src/request/dist"
+  source_path = "${path.module}/../src/request/dist"
   # source_path = [
   #   {
-  #     path = "${path.module}/src/api"
+  #     path = "${path.module}/../src/api"
   #     commands = [
   #       "npm run build",
   #       "cd dist",
@@ -56,7 +56,7 @@ module "lambda_function_list_egress" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -82,10 +82,10 @@ module "lambda_function_list_egress" {
   }
 
   // @TODO
-  source_path = "${path.module}/src/request/dist"
+  source_path = "${path.module}/../src/request/dist"
   # source_path = [
   #   {
-  #     path = "${path.module}/src/api"
+  #     path = "${path.module}/../src/api"
   #     commands = [
   #       "npm run build",
   #       "cd dist",
@@ -105,7 +105,7 @@ module "lambda_function_prepare_ingress" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -131,10 +131,10 @@ module "lambda_function_prepare_ingress" {
   }
 
   // @TODO
-  source_path = "${path.module}/src/request/dist"
+  source_path = "${path.module}/../src/request/dist"
   # source_path = [
   #   {
-  #     path = "${path.module}/src/api"
+  #     path = "${path.module}/../src/api"
   #     commands = [
   #       "npm run build",
   #       "cd dist",
@@ -154,7 +154,7 @@ module "lambda_function_egress_result" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -185,7 +185,7 @@ module "lambda_function_egress_result" {
   }
 
   // @TODO
-  source_path = "${path.module}/src/request/dist"
+  source_path = "${path.module}/../src/request/dist"
 }
 
 module "lambda_function_interpretation" {
@@ -198,7 +198,7 @@ module "lambda_function_interpretation" {
   runtime       = "nodejs14.x"
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 
   publish = true
@@ -224,41 +224,7 @@ module "lambda_function_interpretation" {
   }
 
   // @TODO
-  source_path = "${path.module}/src/request/dist"
-}
-
-module "lambda_function_authorizer" {
-  source = "terraform-aws-modules/lambda/aws"
-  version = "1.37.0"
-
-  function_name = "authorize"
-  description   = "Function to authorize requests to client api gateway"
-  handler       = "index.handler"
-  runtime       = "nodejs14.x"
-
-  tags = {
-    Owner = "pft-extractor"
-  }
-
-  publish = true
-
-  allowed_triggers = {
-    AllowExecutionFromAPIGateway = {
-      service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/authorizers/${aws_apigatewayv2_authorizer.client_api_authorizer.id}"
-    }
-  }
-
-  source_path = [
-    {
-      path = "${path.module}/src/authorize"
-      commands = [
-        "npm run build",
-        "cd dist",
-        ":zip"
-      ]
-    }
-  ]
+  source_path = "${path.module}/../src/request/dist"
 }
 
 module "client_api" {
@@ -288,56 +254,71 @@ module "client_api" {
       lambda_arn             = module.lambda_function_list_ingress.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
-      authorization_type     = "CUSTOM"
+      authorization_type     = "JWT"
       authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "GET /list-egress" = {
       lambda_arn             = module.lambda_function_list_egress.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
-      authorization_type     = "CUSTOM"
+      authorization_type     = "JWT"
       authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "POST /prepare-ingress" = {
       lambda_arn             = module.lambda_function_prepare_ingress.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
-      authorization_type     = "CUSTOM"
+      authorization_type     = "JWT"
       authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "GET /egress/{key}" = {
       lambda_arn             = module.lambda_function_egress_result.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
-      authorization_type     = "CUSTOM"
+      authorization_type     = "JWT"
       authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
     "GET /interpretation/{key}" = {
       lambda_arn             = module.lambda_function_interpretation.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
-      authorization_type     = "CUSTOM"
+      authorization_type     = "JWT"
       authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     }
   }
 
   tags = {
-    Owner = "pft-extractor"
+    Product = var.deployment_name
   }
 }
 
-# @NOTE  Not supported by AWS Terraform module yet
-## Therefore, must be manually attached in console... not great, to revisit
 resource "aws_apigatewayv2_authorizer" "client_api_authorizer" {
   api_id                            = module.client_api.this_apigatewayv2_api_id
-  authorizer_type                   = "REQUEST"
-  authorizer_uri                    = module.lambda_function_authorizer.this_lambda_function_invoke_arn
+  authorizer_type                   = "JWT"
   identity_sources                  = ["$request.header.Authorization"]
   name                              = "client-api-authorizer"
-  enable_simple_responses           = true
-  authorizer_payload_format_version = "2.0"
+
+  jwt_configuration {
+    audience = [aws_cognito_user_pool_client.client_user_pool_client.id]
+    issuer   = "https://${aws_cognito_user_pool.client_user_pool.endpoint}"
+  }
 }
 
 resource "aws_cloudwatch_log_group" "client_api_log_group" {
   name = "/aws/api-gateway/client-api"
+}
+
+resource "aws_cognito_user_pool" "client_user_pool" {
+  name = "${var.deployment_name}-user-pool"
+
+  admin_create_user_config {
+    allow_admin_create_user_only = true
+  }
+}
+
+resource "aws_cognito_user_pool_client" "client_user_pool_client" {
+  name = "web-client"
+
+  generate_secret = false
+  user_pool_id = aws_cognito_user_pool.client_user_pool.id
 }
