@@ -24,6 +24,16 @@ module "lambda_function_transform" {
       effect    = "Allow",
       actions   = ["s3:PutObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/egress/*"]
+    },
+    kmsDecrypt = {
+      effect    = "Allow",
+      actions   = ["kms:Decrypt"],
+      resources = [aws_kms_key.objects.arn]
+    },
+    kmsEncrypt = {
+      effect    = "Allow",
+      actions   = ["kms:GenerateDataKey"]
+      resources = [aws_kms_key.objects.arn]
     }
   }
 
@@ -31,16 +41,7 @@ module "lambda_function_transform" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = [
-    {
-      path = "${path.module}/../src/transform"
-      commands = [
-        "npm run build",
-        "cd dist",
-        ":zip"
-      ]
-    }
-  ]
+  source_path = "${path.module}/../src/transform/dist"
 }
 
 module "lambda_function_interpret" {
@@ -69,6 +70,16 @@ module "lambda_function_interpret" {
       effect    = "Allow",
       actions   = ["s3:PutObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/interpretation/*"]
+    },
+    kmsDecrypt = {
+      effect    = "Allow",
+      actions   = ["kms:Decrypt"],
+      resources = [aws_kms_key.objects.arn]
+    },
+    kmsEncrypt = {
+      effect    = "Allow",
+      actions   = ["kms:GenerateDataKey"]
+      resources = [aws_kms_key.objects.arn]
     }
   }
 
@@ -76,14 +87,5 @@ module "lambda_function_interpret" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = [
-    {
-      path = "${path.module}/../src/interpret"
-      commands = [
-        "npm run build",
-        "cd dist",
-        ":zip"
-      ]
-    }
-  ]
+  source_path = "${path.module}/../src/interpret/dist"
 }

@@ -1,7 +1,9 @@
 import AWS from "aws-sdk";
 import { Context, Callback, APIGatewayProxyHandlerV2, APIGatewayProxyEventV2 } from 'aws-lambda';
 
-const S3 = new AWS.S3({});
+const S3 = new AWS.S3({
+  signatureVersion: 'v4'
+});
 
 // @todo make use of callback?
 export const listEgress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
@@ -61,7 +63,7 @@ export const prepareIngress: APIGatewayProxyHandlerV2 = async (event: APIGateway
   const params = {
     Expires: 60,
     Bucket: process.env.S3_BUCKET,
-    Conditions: [["content-length-range", 100, 10000000]], // 100Byte - 10MB
+    Conditions: [["content-length-range", 100, 100000000]], // 100Byte - 100MB
     Fields: {
       "Content-Type": "application/pdf",
       key: `ingress/${key}`
