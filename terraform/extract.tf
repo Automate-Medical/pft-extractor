@@ -1,3 +1,8 @@
+resource "aws_kms_key" "objects" {
+  description             = "KMS key is used to encrypt ${var.deployment_name}-bucket objects"
+  deletion_window_in_days = 7
+}
+
 module "s3_bucket" {
   source = "terraform-aws-modules/s3-bucket/aws"
 
@@ -7,7 +12,7 @@ module "s3_bucket" {
   force_destroy = true
 
   versioning = {
-    enabled = false
+    enabled = true
   }
 
   tags = {
@@ -15,9 +20,7 @@ module "s3_bucket" {
   }
 
   // @TODO log
-  // @TODO SSE
   // @TODO public access? <- write only?
-  // @TODO versioning?
 
   cors_rule = [
     {
@@ -28,39 +31,16 @@ module "s3_bucket" {
       max_age_seconds = 3000
     }
   ]
+
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        kms_master_key_id = aws_kms_key.objects.arn
+        sse_algorithm     = "aws:kms"
+      }
+    }
+  }
 }
-
-# module "s3_bucket_ingress" {
-#   source = "terraform-aws-modules/s3-bucket/aws"
-
-#   bucket = "pft-extractor-ingress"
-#   acl    = "private"
-
-#   force_destroy = true
-
-#   versioning = {
-#     enabled = false
-#   }
-
-#   tags = {
-#     Product = var.deployment_name
-#   }
-
-#   // @TODO log
-#   // @TODO SSE
-#   // @TODO public access? <- write only?
-#   // @TODO versioning?
-
-#   cors_rule = [
-#     {
-#       allowed_methods = ["PUT", "POST", "GET"]
-#       allowed_origins = ["*"] // @TODO
-#       allowed_headers = ["*"]
-#       expose_headers  = []
-#       max_age_seconds = 3000
-#     }
-#   ]
-# }
 
 module "lambda_function_ingress" {
   source = "terraform-aws-modules/lambda/aws"
@@ -75,16 +55,7 @@ module "lambda_function_ingress" {
     Product = var.deployment_name
   }
 
-  source_path = [
-    {
-      path = "${path.module}/../src/ingress"
-      commands = [
-        "npm run build",
-        "cd dist",
-        ":zip"
-      ]
-    }
-  ]
+  source_path = "${path.module}/../src/ingress/dist"
 
   attach_policy_statements = true
   policy_statements = {
@@ -97,6 +68,11 @@ module "lambda_function_ingress" {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
+    }
+    kmsDecrypt = {
+      effect    = "Allow",
+      actions   = ["kms:Decrypt"],
+      resources = [aws_kms_key.objects.arn]
     }
   }
 
@@ -136,28 +112,6 @@ module "s3_notify_lambda_functions" {
   }
 }
 
-# module "s3_bucket_textract_output" {
-#   source = "terraform-aws-modules/s3-bucket/aws"
-
-#   bucket = "pft-extractor-textract-output"
-#   acl    = "private"
-
-#   force_destroy = true
-
-#   versioning = {
-#     enabled = false
-#   }
-
-#   tags = {
-#     Product = var.deployment_name
-#   }
-
-#   // @TODO log
-#   // @TODO SSE
-#   // @TODO public access?
-#   // @TODO versioning?
-# }
-
 module "lambda_function_save_textract_output" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
@@ -195,19 +149,15 @@ module "lambda_function_save_textract_output" {
       effect    = "Allow",
       actions   = ["s3:PutObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/save-textract-output/*"]
+    },
+    kmsEncrypt = {
+      effect    = "Allow",
+      actions   = ["kms:GenerateDataKey"]
+      resources = [aws_kms_key.objects.arn]
     }
   }
 
-  source_path = [
-    {
-      path = "${path.module}/../src/save-textract-output"
-      commands = [
-        "npm run build",
-        "cd dist",
-        ":zip"
-      ]
-    }
-  ]
+  source_path = "${path.module}/../src/save-textract-output/dist"
 }
 
 module "sns_textract_job_completed" {
@@ -220,6 +170,12 @@ module "sns_textract_job_completed" {
   tags = {
     Product = var.deployment_name
   }
+}
+
+resource "aws_sns_topic_subscription" "sns_textract_job_completed_subscription" {
+  topic_arn = module.sns_textract_job_completed.this_sns_topic_arn
+  protocol  = "lambda"
+  endpoint  = module.lambda_function_save_textract_output.this_lambda_function_arn
 }
 
 module "textract_service_role" {

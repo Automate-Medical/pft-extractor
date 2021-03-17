@@ -26,6 +26,8 @@ export const handler: SNSHandler = async (event: SNSEvent, context: Context, cal
 
   const Message: TexractMessage = JSON.parse(event.Records[0].Sns.Message);
 
+  console.info(Message.Status)
+
   if (Message.Status == "SUCCEEDED") {
     const job = await Textract.getDocumentAnalysis({ JobId: Message.JobId }).promise()
 

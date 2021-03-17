@@ -3,7 +3,6 @@ import { S3Event, Context, S3Handler, Callback } from 'aws-lambda';
 import transform from './transform'
 
 const S3 = new AWS.S3({});
-const Textract = new AWS.Textract({})
 
 // @todo make use of callback?
 export const handler: S3Handler = async (event: S3Event, context: Context, callback: Callback) => {

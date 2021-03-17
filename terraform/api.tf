@@ -34,16 +34,6 @@ module "lambda_function_list_ingress" {
   }
 
   source_path = "${path.module}/../src/request/dist"
-  # source_path = [
-  #   {
-  #     path = "${path.module}/../src/api"
-  #     commands = [
-  #       "npm run build",
-  #       "cd dist",
-  #       ":zip"
-  #     ]
-  #   }
-  # ]
 }
 
 module "lambda_function_list_egress" {
@@ -81,18 +71,7 @@ module "lambda_function_list_egress" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  // @TODO
   source_path = "${path.module}/../src/request/dist"
-  # source_path = [
-  #   {
-  #     path = "${path.module}/../src/api"
-  #     commands = [
-  #       "npm run build",
-  #       "cd dist",
-  #       ":zip"
-  #     ]
-  #   }
-  # ]
 }
 
 module "lambda_function_prepare_ingress" {
@@ -124,24 +103,18 @@ module "lambda_function_prepare_ingress" {
       actions   = ["s3:PutObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
     }
+    kmsEncrypt = {
+      effect    = "Allow",
+      actions   = ["kms:GenerateDataKey"]
+      resources = [aws_kms_key.objects.arn]
+    }
   }
 
   environment_variables = {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  // @TODO
   source_path = "${path.module}/../src/request/dist"
-  # source_path = [
-  #   {
-  #     path = "${path.module}/../src/api"
-  #     commands = [
-  #       "npm run build",
-  #       "cd dist",
-  #       ":zip"
-  #     ]
-  #   }
-  # ]
 }
 
 module "lambda_function_egress_result" {
@@ -177,6 +150,11 @@ module "lambda_function_egress_result" {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
+    },
+    kmsDecrypt = {
+      effect    = "Allow",
+      actions   = ["kms:Decrypt"],
+      resources = [aws_kms_key.objects.arn]
     }
   }
 
@@ -184,7 +162,6 @@ module "lambda_function_egress_result" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  // @TODO
   source_path = "${path.module}/../src/request/dist"
 }
 
@@ -216,6 +193,11 @@ module "lambda_function_interpretation" {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/interpretation/*"]
+    },
+    kmsDecrypt = {
+      effect    = "Allow",
+      actions   = ["kms:Decrypt"],
+      resources = [aws_kms_key.objects.arn]
     }
   }
 
@@ -223,7 +205,6 @@ module "lambda_function_interpretation" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  // @TODO
   source_path = "${path.module}/../src/request/dist"
 }
 

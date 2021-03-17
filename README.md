@@ -16,7 +16,7 @@ aws_region = "ca-central-1" // ca-central-1 is default for us but anywhere is fi
 aws_profile = "aws-profile-name" // the credentials profile to use from ~/.aws/credentials
 ```
 4. Run `terraform apply -var-file="{env}.tfvars"`
-5. Configure the client environment variables using the terraform config output (`terraform output | sed 's/^/NEXT_PUBLIC_/g' > src/x/.env.local`)
+5. Configure the client environment variables using the terraform config output (`terraform output | sed 's/^/NEXT_PUBLIC_/g' > ../src/x/.env.local`)
 6. Create a user account to log into via the AWS Managment panel -> Cognito
 7. Run the client where you'd like - for a development environment, just run it locally
 
