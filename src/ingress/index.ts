@@ -11,6 +11,7 @@ export const handler: S3Handler = async (event: S3Event, context: Context, callb
     return callback("SNS_TOPIC_ARN or ROLE_ARN not set")
   }
 
+
   const input = {
     "DocumentLocation": {
       "S3Object": {
@@ -26,7 +27,7 @@ export const handler: S3Handler = async (event: S3Event, context: Context, callb
     "FeatureTypes": ["TABLES"]
   }
 
-  const response = await new Promise((resolve, reject) => 
+  const response = await new Promise((resolve, reject) =>
     Textract.startDocumentAnalysis(input, (err, data) => {
       if (err) {
         reject(err)

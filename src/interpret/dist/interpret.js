@@ -3,8 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.stepwiseAlgorithim = void 0;
 const types_1 = require("./types");
 // Impl https://www.aafp.org/afp/2014/0301/afp20140301p359.pdf
-// A Stepwise Approach to the Interpretation
-// of Pulmonary Function Tests
+// A Stepwise Approach to the Interpretation of Pulmonary Function Tests
 exports.stepwiseAlgorithim = [
     {
         id: 0,
@@ -13,7 +12,7 @@ exports.stepwiseAlgorithim = [
             return a.value < b.value;
         },
         next: [1, 2],
-        label: 'FEV1/FVC < LLN'
+        label: ['FEV1/FVC is less than the lower limit of normal', 'FEV1/FVC is above the lower limit of normal.']
     },
     {
         id: 1,
@@ -22,7 +21,7 @@ exports.stepwiseAlgorithim = [
             return a.value < b.value;
         },
         next: [3, 4],
-        label: 'FVC < LLN'
+        label: ['FVC is less than the lower limit of normal.', 'FVC is above the lower limit of normal.']
     },
     {
         id: 2,
@@ -31,26 +30,26 @@ exports.stepwiseAlgorithim = [
             return a.value < b.value;
         },
         next: [5, 6],
-        label: 'FVC < LLN'
+        label: ['FVC is less than the lower limit of normal.', 'FVC is above the the lower limit of normal.']
     },
     {
         id: 3,
         next: [7, undefined],
-        label: 'Obstructive defect'
+        label: ['Results indicate an obstructive defect.', undefined]
     },
     {
         id: 4,
         next: [8, undefined],
-        label: 'Mixed pattern'
+        label: ['Results indicate a mixed pattern.', undefined]
     },
     {
         id: 5,
         next: [9, undefined],
-        label: 'Restrictive pattern'
+        label: ['Results indicate a restrictive defect.', undefined]
     },
     {
         id: 6,
-        label: 'Normal'
+        label: ['A normal result', undefined]
     },
     {
         id: 7,
@@ -61,7 +60,7 @@ exports.stepwiseAlgorithim = [
             return ((b.value - a.value) > 0.2) || ((c.value - d.value) > 0.2);
         },
         next: [10, 11],
-        label: 'Increase in FEV1 or FVC after bronchodilator therapy'
+        label: ['There was an increase in FEV1 or FVC after bronchodilator therapy', 'There was not an increase in FEV1 or FVC after bronchodilator therapy']
     },
     {
         id: 8,
@@ -70,34 +69,34 @@ exports.stepwiseAlgorithim = [
             return a.value > b.value;
         },
         next: [12, 9],
-        label: 'Increase in FVC after bronchodilator therapy'
+        label: ['There was an increase in FVC after bronchodilator therapy', 'There was not an increase in FVC after bronchodilator therapy']
     },
     {
         id: 9,
         next: [13, undefined],
-        label: 'Confirm restrictive defect through full pulmonary function tests with DLCO'
+        label: ['Confirm restrictive defect through full pulmonary function tests with DLCO.', undefined]
     },
     {
         id: 10,
-        label: 'Reversible obstruction (asthma)'
+        label: ['Results indicate a reversible obstruction.', undefined]
     },
     {
         id: 11,
         next: [14, undefined],
-        label: 'Irreversible obstruction'
+        label: ['Results indicate an irreversible obstruction.', undefined]
     },
     {
         id: 12,
-        label: 'Pure obstruction with air trapping is likely chronic obstructive pulmonary disease',
-        next: [14, undefined]
+        next: [14, undefined],
+        label: ['Results indicate pure obstruction with air trapping is likely chronic obstructive pulmonary disease', undefined]
     },
     {
         id: 13,
-        label: 'Consider differential diagnosis (Tables 4 and 5)'
+        label: ['Consider differential diagnosis.', undefined]
     },
     {
         id: 14,
-        label: 'Consider differential diagnosis (Table 4)'
+        label: ['Consider differential diagnosis.', undefined]
     }
 ];
 function interpret(pft) {
@@ -117,10 +116,28 @@ function interpret(pft) {
             return walk(step.next[0], path);
         }
         else {
-            return path.map((e) => exports.stepwiseAlgorithim[e]);
+            return path;
         }
     }
-    return walk();
+    const path = walk().map((e) => exports.stepwiseAlgorithim[e]);
+    const summary = path.map((rule, index, path) => {
+        if (rule.next) {
+            const nextRuleId = path[index + 1].id;
+            if (rule.next[0] == nextRuleId) {
+                return rule.label[0];
+            }
+            else if (rule.next[1] == nextRuleId) {
+                return rule.label[1];
+            }
+        }
+        else {
+            return rule.label[0];
+        }
+    }).join(" ");
+    return {
+        path,
+        summary
+    };
 }
 exports.default = interpret;
 function pick(pft, type) {

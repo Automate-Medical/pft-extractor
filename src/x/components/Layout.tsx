@@ -19,10 +19,7 @@ const Layout = ({ children }: { children: ReactElement }) => (
     </Head>
 
     <AmplifyAuthenticator>
-      <AmplifySignIn
-        hideSignUp={true}
-        slot="sign-in"
-      ></AmplifySignIn>
+      <AmplifySignIn hideSignUp={true} slot="sign-in"></AmplifySignIn>
 
       <Nav />
 

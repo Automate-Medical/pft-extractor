@@ -3,9 +3,17 @@
 
 .Nav {
   background-color: $theme-gradient !important;
+  padding: 0px !important;
 
   a {
     color: $white;
   }
 }
 
+.NavBar {
+  padding: 0 20px;
+}
+
+.SubNav {
+  margin: 10px 20px;
+}

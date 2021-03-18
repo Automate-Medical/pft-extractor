@@ -1,10 +1,10 @@
-module "lambda_function_list_ingress" {
+module "lambda_function_list_documents" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "list-ingress"
-  description   = "Function to list ingress results"
-  handler       = "index.listIngress"
+  function_name = "list-documents"
+  description   = "Function to list all results"
+  handler       = "index.listDocuments"
   runtime       = "nodejs14.x"
 
   tags = {
@@ -16,45 +16,7 @@ module "lambda_function_list_ingress" {
   allowed_triggers = {
     AllowExecutionFromAPIGateway = {
       service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/list-ingress"
-    }
-  }
-
-  attach_policy_statements = true
-  policy_statements = {
-    s3ListBucket = {
-      effect    = "Allow",
-      actions   = ["s3:ListBucket"],
-      resources = [module.s3_bucket.this_s3_bucket_arn]
-    }
-  }
-
-  environment_variables = {
-    "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
-  }
-
-  source_path = "${path.module}/../src/request/dist"
-}
-
-module "lambda_function_list_egress" {
-  source = "terraform-aws-modules/lambda/aws"
-  version = "1.37.0"
-
-  function_name = "list-egress"
-  description   = "Function to list egress results"
-  handler       = "index.listEgress"
-  runtime       = "nodejs14.x"
-
-  tags = {
-    Product = var.deployment_name
-  }
-
-  publish = true
-
-  allowed_triggers = {
-    AllowExecutionFromAPIGateway = {
-      service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/list-egress"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract/list"
     }
   }
 
@@ -135,7 +97,7 @@ module "lambda_function_egress_result" {
   allowed_triggers = {
     AllowExecutionFromAPIGateway = {
       service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/egress/*"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract/result/*"
     }
   }
 
@@ -231,15 +193,8 @@ module "client_api" {
 
   # Routes and integrations
   integrations = {
-    "GET /list-ingress" = {
-      lambda_arn             = module.lambda_function_list_ingress.this_lambda_function_arn
-      payload_format_version = "2.0"
-      timeout_milliseconds   = 12000
-      authorization_type     = "JWT"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
-    },
-    "GET /list-egress" = {
-      lambda_arn             = module.lambda_function_list_egress.this_lambda_function_arn
+    "GET /extract/list" = {
+      lambda_arn             = module.lambda_function_list_documents.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000
       authorization_type     = "JWT"
@@ -252,7 +207,7 @@ module "client_api" {
       authorization_type     = "JWT"
       authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
     },
-    "GET /egress/{key}" = {
+    "GET /extract/result/{key}" = {
       lambda_arn             = module.lambda_function_egress_result.this_lambda_function_arn
       payload_format_version = "2.0"
       timeout_milliseconds   = 12000

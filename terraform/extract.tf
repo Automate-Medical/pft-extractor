@@ -1,6 +1,7 @@
 resource "aws_kms_key" "objects" {
   description             = "KMS key is used to encrypt ${var.deployment_name}-bucket objects"
-  deletion_window_in_days = 7
+  # @TODO - required? what about rotation?
+  # deletion_window_in_days = 7
 }
 
 module "s3_bucket" {
