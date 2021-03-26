@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import React, { Fragment, useState } from 'react';
-import useSWR from 'swr'
+import useSWR, { SWRResponse } from 'swr'
 import api from '../../lib/api'
 import { AnchorButton, Button, ButtonGroup, Drawer, H2, HTMLTable, IButtonProps, Icon, Intent, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core';
 
@@ -8,33 +8,34 @@ import styles from "./index.module.scss"
 import "normalize.css";
 import "@blueprintjs/core/lib/css/blueprint.css";
 import "@blueprintjs/icons/lib/css/blueprint-icons.css";
-import { formatBytes } from '../../lib/format';
 
 import NewJob from "./_new"
 
 export default function Index() {
-  const [filter, setFilter] = useState<string>("all")
+  const [filter, setFilter] = useState<string>("ALL")
   const [showingNewJob, setShowingNewJob] = useState<boolean>(false)
 
-  const { data: data, error: error } = useSWR(`/extract/list?filter=${filter}`, api, { refreshInterval: 1000 })
+  const { data, error }: SWRResponse<{ list: any[]}, string> = useSWR(`/extract?filter=${filter}`, api, { refreshInterval: 1000 })
 
-  // @todo for database later...
-  function jobTag(): string | null {
-    const keys = [
-      'CF Study 2021'
-    ]
-
-    return keys[0]
-  }
+  const rows = data?.list.sort((a, b) => {
+    if (a.lastModified < b.lastModified) {
+      return 1
+    } else if (a.lastModified > b.lastModified) {
+      return -1
+    } else {
+      return 0
+    }
+  }).map((row) => {
+    return (<Row pft={row} key={row.key} />)
+  })
 
   function Row({ pft }) {
     return (
       <tr key={pft.key}>
-        <td>{ pft.stage == "finished" ? <Link href={`/extract/${pft.key}`}>{pft.key}</Link> : pft.key}</td>
-        <td>{jobTag()}</td>
-        <td><Tag round={true} className={styles.StageTag} minimal={true} intent={pft.stage == "finished" ? "success" : "primary"}>{ pft.stage == "finished" ? "✅" : "⌛"} {pft.stage}</Tag></td>
+        <td>{ pft.stage == "FINISHED" ? <Link href={`/extract/${pft.key}`}>{pft.key}</Link> : pft.key}</td>
+        <td>{pft.jobTag}</td>
+        <td><Tag round={true} className={styles.StageTag} minimal={true} intent={pft.stage == "FINISHED" ? "success" : "primary"}>{ pft.stage == "FINISHED" ? "✅" : "⌛"} {pft.stage}</Tag></td>
         <td><Tag round={true} minimal={true}>{process.env.NEXT_PUBLIC_AWS_REGION} 🇨🇦</Tag></td>
-        <td>{formatBytes(pft.size)}</td>
         <td>{pft.lastModified}</td>
       </tr>
     )
@@ -56,9 +57,9 @@ export default function Index() {
       <Fragment>
         <section className={styles.TableFilter}>
           <ButtonGroup>
-            <FilterButton text={"All PFTs"} group="all"/>
-            <FilterButton text={"Started"} group="started" icon="filter"/>
-            <FilterButton text={"Finished"} group="finished" icon="filter"/>
+            <FilterButton text={"All PFTs"} group="ALL"/>
+            <FilterButton text={"Started"} group="STARTED" icon="filter"/>
+            <FilterButton text={"Finished"} group="FINISHED" icon="filter"/>
           </ButtonGroup>
           <section className={styles.TableCTA}>
             <AnchorButton icon="settings" text="Review extract rules" intent="none" disabled={true}  />
@@ -73,18 +74,15 @@ export default function Index() {
               <th>Job Tag</th>
               <th>Stage</th>
               <th>Location</th>
-              <th>Size</th>
               <th>Last Modified <Icon icon="chevron-down" /></th>
             </tr>
           </thead>
 
           { data ?
             <tbody>
-              { data.list.map(pft => {
-                return (<Row pft={pft} key={pft.key} />)
-              }) }
+              { rows }
             </tbody>
-          : <Spinner className={styles.TableLoading} />}
+          : null }
         </HTMLTable>
       </Fragment>
       <Drawer size={Drawer.SIZE_SMALL} isOpen={showingNewJob} icon="info-sign"

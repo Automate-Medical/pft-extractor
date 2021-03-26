@@ -1,8 +1,8 @@
-module "lambda_function_transform" {
+module "lambda_function_structure" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "transform"
+  function_name = "structure"
   description   = "Function to transform Textract results into a normalized structure"
   handler       = "index.handler"
   runtime       = "nodejs14.x"
@@ -32,8 +32,13 @@ module "lambda_function_transform" {
     },
     kmsEncrypt = {
       effect    = "Allow",
-      actions   = ["kms:GenerateDataKey"]
+      actions   = ["kms:GenerateDataKey"],
       resources = [aws_kms_key.objects.arn]
+    },
+    DynamoPutItem = {
+      effect    = "Allow"
+      actions   = ["dynamodb:UpdateItem"],
+      resources = [aws_dynamodb_table.extracts.arn]
     }
   }
 
@@ -41,7 +46,7 @@ module "lambda_function_transform" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/transform/dist"
+  source_path = "${path.module}/../src/structure/dist"
 }
 
 module "lambda_function_interpret" {

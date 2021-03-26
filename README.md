@@ -4,7 +4,8 @@ A project for managing pulmonary function test data using AWS.
 
 # Architecture
 
-![infra](https://user-images.githubusercontent.com/704789/111659713-111e9c00-87d3-11eb-9309-22422ca19920.png)
+![V3](https://user-images.githubusercontent.com/704789/113027190-0b1baa00-9147-11eb-999f-68a93379f7a4.png)
+
 
 ## Opinions
 

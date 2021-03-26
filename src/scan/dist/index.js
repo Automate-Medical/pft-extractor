@@ -5,29 +5,30 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
 const aws_sdk_1 = __importDefault(require("aws-sdk"));
+const S3 = new aws_sdk_1.default.S3({});
 const Textract = new aws_sdk_1.default.Textract({});
 // @todo make use of callback?
 const handler = async (event, context, callback) => {
-    if (!process.env.SNS_TOPIC_ARN || !process.env.ROLE_ARN) {
-        return callback("SNS_TOPIC_ARN or ROLE_ARN not set");
+    if (!process.env.S3_BUCKET) {
+        return callback("S3_BUCKET");
     }
-    const key = event.Records[0].s3.object.key.split("/")[1];
-    await updateExtractStage(key, "STARTED");
-    const input = {
-        "DocumentLocation": {
-            "S3Object": {
-                "Bucket": event.Records[0].s3.bucket.name,
-                "Name": encodeURI(event.Records[0].s3.object.key)
-            }
-        },
-        "NotificationChannel": {
-            "SNSTopicArn": process.env.SNS_TOPIC_ARN,
-            "RoleArn": process.env.ROLE_ARN
-        },
-        "JobTag": "pft-extractor-ingress",
-        "FeatureTypes": ["TABLES"]
-    };
-    await Textract.startDocumentAnalysis(input).promise();
+    const Message = JSON.parse(event.Records[0].Sns.Message);
+    if (Message.Status == "SUCCEEDED") {
+        const key = Message.DocumentLocation.S3ObjectName.split("/")[1];
+        await updateExtractStage(key, "SCANNED");
+        const job = await Textract.getDocumentAnalysis({ JobId: Message.JobId }).promise();
+        const params = {
+            Bucket: process.env.S3_BUCKET,
+            Key: `save-textract-output/${key}`,
+            Body: JSON.stringify(job),
+            ContentType: 'application/json; charset=utf-8',
+        };
+        await S3.upload(params).promise();
+    }
+    else {
+        const key = Message.DocumentLocation.S3ObjectName.split("/")[1];
+        await updateExtractStage(key, "ERROR");
+    }
 };
 exports.handler = handler;
 async function updateExtractStage(key, stage) {

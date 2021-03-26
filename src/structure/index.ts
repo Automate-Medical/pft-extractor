@@ -6,8 +6,6 @@ const S3 = new AWS.S3({});
 
 // @todo make use of callback?
 export const handler: S3Handler = async (event: S3Event, context: Context, callback: Callback) => {
-  console.info("Initializing lambda-function-transform");
-
   if (!process.env.S3_BUCKET) {
     return callback("S3_BUCKET")
   }
@@ -30,9 +28,37 @@ export const handler: S3Handler = async (event: S3Event, context: Context, callb
     };
 
     await S3.upload(params).promise()
+    await updateExtractStage(Key.split("/")[1], "FINISHED")
   } catch(e) {
-    console.log("FAILED")
+    await updateExtractStage(Key.split("/")[1], "ERROR")
   }
-
-  console.info("Completing lambda-function-transform");
 };
+
+async function updateExtractStage(key: string, stage: string) {
+  const DynamoDB = new AWS.DynamoDB();
+
+  var dbInput = {
+    AttributeUpdates: {
+      Stage: {
+        Action: "PUT",
+        Value: {
+          S: stage
+        }
+      },
+      ModifiedAt: {
+        Action: "PUT",
+        Value: {
+          S: new Date().toISOString()
+        }
+      }
+    },
+    Key: {
+      UUID: {
+        S: key
+      }
+    },
+    TableName: "Extracts"
+   };
+
+  return await DynamoDB.updateItem(dbInput).promise()
+}

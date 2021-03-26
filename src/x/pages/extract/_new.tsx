@@ -9,7 +9,7 @@ import styles from "./_new.module.scss"
 export default function UploadFragment() {
   const [uploading, setUploading] = useState(false)
   const [filesToUpload, setFilesToUpload] = useState<FileList>()
-  // const [toast, setToast] = useState<Toast>();
+  const [jobTag, setJobTag] = useState<string>(null)
 
   async function asyncForEach(array, callback) {
     for (let index = 0; index < array.length; index++) {
@@ -21,12 +21,13 @@ export default function UploadFragment() {
     setFilesToUpload(event.currentTarget.files)
   }
 
+
   async function upload() {
     setUploading(true)
 
     asyncForEach(Array.from(filesToUpload), async (file) => {
       const key = uuid()
-      const { signedUrl } = await api("/prepare-ingress", "POST", JSON.stringify({ key }))
+      const { signedUrl } = await api("/extract/new", "POST", JSON.stringify({ key, jobTag }))
 
       let body = new FormData()
       Object.keys(signedUrl.fields).forEach(key => body.append(key, signedUrl.fields[key]))
@@ -44,10 +45,13 @@ export default function UploadFragment() {
     })
   }
 
+  function handleSetJobTag(e) {
+    setJobTag(e.target.value)
+  }
+
+
   return (
     <section className={styles.New}>
-      {/* <Toaster ref={ref => ref.show({ ...toast })} /> */}
-
       <H1>
         New file extract
       </H1>
@@ -71,7 +75,7 @@ export default function UploadFragment() {
         labelFor="text-input"
         labelInfo="(optional)"
         >
-          <InputGroup large={true} disabled={uploading} />
+          <InputGroup large={true} disabled={uploading} onChange={handleSetJobTag} />
         </FormGroup>
 
       <Button text="Start" fill={true} large={true} disabled={uploading} loading={uploading} intent="primary" onClick={() => upload()} />
