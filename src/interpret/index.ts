@@ -6,11 +6,7 @@ const S3 = new AWS.S3({});
 
 // @todo make use of callback?
 export const handler: S3Handler = async (event: S3Event, context: Context, callback: Callback) => {
-  console.info("Initializing lambda-function-interpret");
-
-  if (!process.env.S3_BUCKET) {
-    return callback("S3_BUCKET")
-  }
+  if (!process.env.S3_BUCKET) return callback("S3_BUCKET env var required")
 
   const Bucket = event.Records[0].s3.bucket.name
   const Key = event.Records[0].s3.object.key
@@ -29,10 +25,10 @@ export const handler: S3Handler = async (event: S3Event, context: Context, callb
       ContentType: 'application/json; charset=utf-8',
     };
 
-    await S3.upload(params).promise()
-  } catch(e) {
-    console.log("FAILED")
-  }
+    const s3result = await S3.upload(params).promise()
 
-  console.info("Completing lambda-function-transform");
+    return callback(null, interpretation);
+  } catch(e) {
+    return callback(`Interpretation failed for ${Key}`)
+  }
 };

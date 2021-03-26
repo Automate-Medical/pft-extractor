@@ -3,49 +3,74 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.interpretation = exports.egressResult = exports.prepareIngress = exports.listIngress = exports.listEgress = void 0;
+exports.interpretation = exports.egressResult = exports.prepareIngress = exports.listDocuments = void 0;
 const aws_sdk_1 = __importDefault(require("aws-sdk"));
-const S3 = new aws_sdk_1.default.S3({
-    signatureVersion: 'v4'
-});
-// @todo make use of callback?
-const listEgress = async (event, context, callback) => {
-    console.info("initializing list-egress");
-    if (!process.env.S3_BUCKET) {
-        return formatResponse("test unsuccessful");
-    }
-    const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "egress/" }).promise();
-    const items = list.Contents?.map(item => {
+// import listDocuments from 'src/listDocuments'
+const S3 = new aws_sdk_1.default.S3({});
+function formatListDocuments(list, stage) {
+    return list.map(item => {
         return {
             key: item.Key?.split("/")[1],
             lastModified: item.LastModified,
-            stage: "Processed"
+            stage,
+            size: item.Size,
+            storageClass: item.StorageClass,
+            owner: item.Owner
         };
     });
-    return formatResponse(JSON.stringify({
-        pfts: items
-    }));
-};
-exports.listEgress = listEgress;
+}
 // @todo make use of callback?
-const listIngress = async (event, context, callback) => {
-    console.info("initializing list-ingress");
+const listDocuments = async (event, context, callback) => {
     if (!process.env.S3_BUCKET) {
-        return formatResponse("test unsuccessful");
+        return formatResponse(JSON.stringify({
+            error: `S3_BUCKET not available`
+        }), 500);
     }
-    const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "ingress/" }).promise();
-    const items = list.Contents?.map(item => {
-        return {
-            key: item.Key?.split("/")[1],
-            lastModified: item.LastModified,
-            stage: "Uploaded"
-        };
+    console.log(event.queryStringParameters);
+    const filter = event.queryStringParameters?.filter ? event.queryStringParameters.filter : "all";
+    const ingressObjects = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "ingress/" }).promise();
+    const egressObjects = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "egress/" }).promise();
+    if (!ingressObjects.Contents || !egressObjects.Contents) {
+        return formatResponse(JSON.stringify({
+            error: `Extraction results are temporarily unavailable`
+        }), 422);
+    }
+    const ingressList = formatListDocuments(ingressObjects.Contents, "started");
+    const egressList = formatListDocuments(egressObjects.Contents, "finished");
+    let list = [];
+    list = ingressList.map((ingressItem) => {
+        const egressItem = egressList.find((egressItem) => egressItem.key == ingressItem.key);
+        if (egressItem) {
+            return egressItem;
+        }
+        else {
+            return ingressItem;
+        }
+    });
+    list = list.sort((a, b) => {
+        if (!a.lastModified || !b.lastModified) {
+            return 1;
+        }
+        else if (a.lastModified < b.lastModified) {
+            return 1;
+        }
+        else {
+            return -1;
+        }
+    });
+    list = list.filter((listItem) => {
+        if (filter == "all") {
+            return true;
+        }
+        else {
+            return listItem.stage == filter;
+        }
     });
     return formatResponse(JSON.stringify({
-        pfts: items
+        list
     }));
 };
-exports.listIngress = listIngress;
+exports.listDocuments = listDocuments;
 const prepareIngress = async (event, context, callback) => {
     console.info("initializing prepare-ingress");
     if (!process.env.S3_BUCKET || !event.body) {
@@ -83,8 +108,14 @@ const egressResult = async (event, context, callback) => {
         Key: `ingress/${event.pathParameters.key}`
     });
     return formatResponse(JSON.stringify({
-        egress,
-        ingressUrl
+        result: egress,
+        meta: {
+            key: event.pathParameters.key,
+            lastModified: result.LastModified,
+            versionId: result.VersionId,
+            replicationStatus: result.ReplicationStatus,
+            ingressUrl
+        }
     }));
 };
 exports.egressResult = egressResult;
@@ -104,9 +135,9 @@ const interpretation = async (event, context, callback) => {
     }));
 };
 exports.interpretation = interpretation;
-function formatResponse(body) {
+function formatResponse(body, code = 200) {
     let response = {
-        "statusCode": 200,
+        "statusCode": code,
         "headers": {
             "Content-Type": "application/json"
         },

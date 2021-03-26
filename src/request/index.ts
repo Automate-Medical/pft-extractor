@@ -1,53 +1,87 @@
 import AWS from "aws-sdk";
 import { Context, Callback, APIGatewayProxyHandlerV2, APIGatewayProxyEventV2 } from 'aws-lambda';
 
-const S3 = new AWS.S3({
-  signatureVersion: 'v4'
-});
+// import listDocuments from 'src/listDocuments'
 
-// @todo make use of callback?
-export const listEgress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
-  console.info("initializing list-egress");
+const S3 = new AWS.S3({});
 
-  if (!process.env.S3_BUCKET) {
-    return formatResponse("test unsuccessful")
-  }
+interface APIListDocumentsListItem {
+  key: string | undefined;
+  lastModified: Date | undefined;
+  stage: string;
+  size: number | undefined;
+  storageClass: string | undefined;
+  owner: AWS.S3.Owner | undefined;
+}
 
-  const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "egress/" }).promise()
-
-  const items = list.Contents?.map(item => {
+function formatListDocuments(list: AWS.S3.ObjectList, stage: string): APIListDocumentsListItem[] {
+  return list.map(item => {
     return {
       key: item.Key?.split("/")[1],
       lastModified: item.LastModified,
-      stage: "Processed"
+      stage,
+      size: item.Size,
+      storageClass: item.StorageClass,
+      owner: item.Owner
+    }
+  })
+}
+
+// @todo make use of callback?
+export const listDocuments: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
+  if (!process.env.S3_BUCKET) {
+    return formatResponse(JSON.stringify({
+      error: `S3_BUCKET not available`
+    }), 500)
+  }
+
+  console.log(event.queryStringParameters)
+
+  const filter = event.queryStringParameters?.filter ? event.queryStringParameters.filter : "all"
+
+  const ingressObjects = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "ingress/" }).promise()
+  const egressObjects = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "egress/" }).promise()
+
+  if (!ingressObjects.Contents || !egressObjects.Contents) {
+    return formatResponse(JSON.stringify({
+      error: `Extraction results are temporarily unavailable`
+    }), 422)
+  }
+
+  const ingressList = formatListDocuments(ingressObjects.Contents, "started");
+  const egressList = formatListDocuments(egressObjects.Contents, "finished");
+
+  let list: APIListDocumentsListItem[] = [];
+
+  list = ingressList.map((ingressItem) => {
+    const egressItem = egressList.find((egressItem) => egressItem.key == ingressItem.key)
+    if (egressItem) {
+      return egressItem
+    } else {
+      return ingressItem
+    }
+  })
+
+  list = list.sort((a, b) => {
+    if (!a.lastModified || !b.lastModified) {
+      return 1
+    } else if (a.lastModified < b.lastModified) {
+      return 1;
+    } else {
+      return -1;
+    }
+  })
+
+  list = list.filter((listItem) => {
+    if (filter == "all") {
+      return true;
+    } else {
+      return listItem.stage == filter
     }
   })
 
   return formatResponse(JSON.stringify({
-    pfts: items
-  }))
-};
-
-// @todo make use of callback?
-export const listIngress: APIGatewayProxyHandlerV2 = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
-  console.info("initializing list-ingress");
-
-  if (!process.env.S3_BUCKET) {
-    return formatResponse("test unsuccessful")
-  }
-
-  const list = await S3.listObjectsV2({ Bucket: process.env.S3_BUCKET, Prefix: "ingress/" }).promise()
-
-  const items = list.Contents?.map(item => {
-    return {
-      key: item.Key?.split("/")[1],
-      lastModified: item.LastModified,
-      stage: "Uploaded"
-    }
-  })
-
-  return formatResponse(JSON.stringify({
-    pfts: items
+    list
   }))
 };
 
@@ -63,7 +97,7 @@ export const prepareIngress: APIGatewayProxyHandlerV2 = async (event: APIGateway
   const params = {
     Expires: 60,
     Bucket: process.env.S3_BUCKET,
-    Conditions: [["content-length-range", 100, 100000000]], // 100Byte - 100MB
+    Conditions: [["content-length-range", 100, 10000000]], // 100Byte - 10MB
     Fields: {
       "Content-Type": "application/pdf",
       key: `ingress/${key}`
@@ -98,8 +132,14 @@ export const egressResult: APIGatewayProxyHandlerV2 = async (event: APIGatewayPr
   })
 
   return formatResponse(JSON.stringify({
-    egress,
-    ingressUrl
+    result: egress,
+    meta: {
+      key: event.pathParameters.key,
+      lastModified: result.LastModified,
+      versionId: result.VersionId,
+      replicationStatus: result.ReplicationStatus,
+      ingressUrl
+    }
   }))
 }
 
@@ -123,9 +163,9 @@ export const interpretation: APIGatewayProxyHandlerV2 = async (event: APIGateway
   }))
 }
 
-function formatResponse(body: string){
+function formatResponse(body: string, code = 200){
   let response = {
-    "statusCode": 200,
+    "statusCode": code,
     "headers": {
       "Content-Type": "application/json"
     },
