@@ -69,11 +69,16 @@ module "lambda_function_ingress" {
       effect    = "Allow",
       actions   = ["s3:GetObject"],
       resources = ["${module.s3_bucket.this_s3_bucket_arn}/ingress/*"]
-    }
+    },
     kmsDecrypt = {
       effect    = "Allow",
       actions   = ["kms:Decrypt"],
       resources = [aws_kms_key.objects.arn]
+    },
+    updateExtracts = {
+      effect    = "Allow",
+      actions   = ["dynamodb:UpdateItem"],
+      resources = [aws_dynamodb_table.extracts.arn]
     }
   }
 
@@ -98,8 +103,8 @@ module "s3_notify_lambda_functions" {
     }
 
     saveTextractOutput = {
-      function_arn  = module.lambda_function_transform.this_lambda_function_arn
-      function_name = module.lambda_function_transform.this_lambda_function_name
+      function_arn  = module.lambda_function_structure.this_lambda_function_arn
+      function_name = module.lambda_function_structure.this_lambda_function_name
       events        = ["s3:ObjectCreated:Put"]
       filter_prefix = "save-textract-output/"
     }
@@ -113,14 +118,15 @@ module "s3_notify_lambda_functions" {
   }
 }
 
-module "lambda_function_save_textract_output" {
+module "lambda_function_scan" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "save-textract-output"
+  function_name = "scan"
   description   = "Function to save and store Textract Job results"
   handler       = "index.handler"
   runtime       = "nodejs14.x"
+  timeout       = 10
 
   tags = {
     Product = var.deployment_name
@@ -155,10 +161,15 @@ module "lambda_function_save_textract_output" {
       effect    = "Allow",
       actions   = ["kms:GenerateDataKey"]
       resources = [aws_kms_key.objects.arn]
+    },
+    updateExtracts = {
+      effect    = "Allow",
+      actions   = ["dynamodb:UpdateItem"],
+      resources = [aws_dynamodb_table.extracts.arn]
     }
   }
 
-  source_path = "${path.module}/../src/save-textract-output/dist"
+  source_path = "${path.module}/../src/scan/dist"
 }
 
 module "sns_textract_job_completed" {
@@ -176,7 +187,7 @@ module "sns_textract_job_completed" {
 resource "aws_sns_topic_subscription" "sns_textract_job_completed_subscription" {
   topic_arn = module.sns_textract_job_completed.this_sns_topic_arn
   protocol  = "lambda"
-  endpoint  = module.lambda_function_save_textract_output.this_lambda_function_arn
+  endpoint  = module.lambda_function_scan.this_lambda_function_arn
 }
 
 module "textract_service_role" {

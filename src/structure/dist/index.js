@@ -9,7 +9,6 @@ const transform_1 = __importDefault(require("./transform"));
 const S3 = new aws_sdk_1.default.S3({});
 // @todo make use of callback?
 const handler = async (event, context, callback) => {
-    console.info("Initializing lambda-function-transform");
     if (!process.env.S3_BUCKET) {
         return callback("S3_BUCKET");
     }
@@ -27,10 +26,36 @@ const handler = async (event, context, callback) => {
             ContentType: 'application/json; charset=utf-8',
         };
         await S3.upload(params).promise();
+        await updateExtractStage(Key.split("/")[1], "FINISHED");
     }
     catch (e) {
-        console.log("FAILED");
+        await updateExtractStage(Key.split("/")[1], "ERROR");
     }
-    console.info("Completing lambda-function-transform");
 };
 exports.handler = handler;
+async function updateExtractStage(key, stage) {
+    const DynamoDB = new aws_sdk_1.default.DynamoDB();
+    var dbInput = {
+        AttributeUpdates: {
+            Stage: {
+                Action: "PUT",
+                Value: {
+                    S: stage
+                }
+            },
+            ModifiedAt: {
+                Action: "PUT",
+                Value: {
+                    S: new Date().toISOString()
+                }
+            }
+        },
+        Key: {
+            UUID: {
+                S: key
+            }
+        },
+        TableName: "Extracts"
+    };
+    return await DynamoDB.updateItem(dbInput).promise();
+}

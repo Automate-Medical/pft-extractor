@@ -39,7 +39,7 @@ const SubNav = () => {
         {breadcrumbs.map((breadcrumb, index, array) => {
           const current = array.length == index + 1
           return (
-            <li>
+            <li key={index}>
               <Link href={breadcrumb.href}>
                 <a className={["bp3-breadcrumb", current ? "bp3-breadcrumb-current" : null].join(" ")} tabIndex={0}>{breadcrumb.text}</a>
               </Link>

@@ -123,7 +123,7 @@ export default function Result() {
   const { data, error }: {
     data?: IEgressResponseData,
     error?: any
-  } = useSWR(uuid ? `/extract/result/${uuid}` : null, api)
+  } = useSWR(uuid ? `/extract/${uuid}` : null, api)
 
   function Data() {
     return (
@@ -146,8 +146,6 @@ export default function Result() {
             <p>
               <AnchorButton small={true} href={data?.meta.ingressUrl} text="View Original" rightIcon="folder-shared-open" target="_blank" />
             </p>
-            <p><strong>Job Tag</strong></p>
-            <p>CF Study 2021 <AnchorButton text="Show All" small={true} disabled={true} minimal={true} rightIcon="property" /></p>
             <p><strong>Tests Identified</strong></p>
             <p>
               {/* @ts-ignore */}

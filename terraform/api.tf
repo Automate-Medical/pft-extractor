@@ -1,10 +1,68 @@
-module "lambda_function_list_documents" {
+module "client_api" {
+  source  = "terraform-aws-modules/apigateway-v2/aws"
+  version = "0.10.0"
+
+  name          = "client-api"
+  description   = "A gateway for the X client"
+  protocol_type = "HTTP"
+
+  // @TODO lock down
+  cors_configuration = {
+    allow_headers = ["content-type", "x-amz-date", "authorization", "x-api-key", "x-amz-security-token", "x-amz-user-agent"]
+    allow_methods = ["*"]
+    allow_origins = ["*"]
+  }
+
+  default_stage_access_log_destination_arn = aws_cloudwatch_log_group.client_api_log_group.arn
+  // @TODO - is this maximal logging?
+  default_stage_access_log_format          = "$context.identity.sourceIp - - [$context.requestTime] \"$context.httpMethod $context.routeKey $context.protocol\" $context.status $context.responseLength $context.requestId $context.integrationErrorMessage"
+
+  create_api_domain_name = false
+
+  # Routes and integrations
+  integrations = {
+    "GET /extract" = {
+      lambda_arn             = module.lambda_function_extract_index.this_lambda_function_arn
+      payload_format_version = "2.0"
+      timeout_milliseconds   = 12000
+      authorization_type     = "JWT"
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
+    },
+    "POST /extract/new" = {
+      lambda_arn             = module.lambda_function_extract_new.this_lambda_function_arn
+      payload_format_version = "2.0"
+      timeout_milliseconds   = 12000
+      authorization_type     = "JWT"
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
+    },
+    "GET /extract/{key}" = {
+      lambda_arn             = module.lambda_function_extract_get.this_lambda_function_arn
+      payload_format_version = "2.0"
+      timeout_milliseconds   = 12000
+      authorization_type     = "JWT"
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
+    },
+    "GET /interpretation/{key}" = {
+      lambda_arn             = module.lambda_function_interpretation_get.this_lambda_function_arn
+      payload_format_version = "2.0"
+      timeout_milliseconds   = 12000
+      authorization_type     = "JWT"
+      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
+    }
+  }
+
+  tags = {
+    Product = var.deployment_name
+  }
+}
+
+module "lambda_function_extract_index" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "list-documents"
-  description   = "Function to list all results"
-  handler       = "index.listDocuments"
+  function_name = "ExtractIndex"
+  description   = "Function to list all Extracts"
+  handler       = "index.ExtractIndex"
   runtime       = "nodejs14.x"
 
   tags = {
@@ -16,7 +74,7 @@ module "lambda_function_list_documents" {
   allowed_triggers = {
     AllowExecutionFromAPIGateway = {
       service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract/list"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract"
     }
   }
 
@@ -26,6 +84,11 @@ module "lambda_function_list_documents" {
       effect    = "Allow",
       actions   = ["s3:ListBucket"],
       resources = [module.s3_bucket.this_s3_bucket_arn]
+    },
+    dynamodbScan = {
+      effect    = "Allow",
+      actions   = ["dynamodb:Scan"],
+      resources = [aws_dynamodb_table.extracts.arn]
     }
   }
 
@@ -33,16 +96,16 @@ module "lambda_function_list_documents" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/request/dist"
+  source_path = "${path.module}/../src/api/dist"
 }
 
-module "lambda_function_prepare_ingress" {
+module "lambda_function_extract_new" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "prepare-ingress"
-  description   = "Function to create a signed url for documents to be added to ingress"
-  handler       = "index.prepareIngress"
+  function_name = "ExtractNew"
+  description   = "Function to create a signed url for a new Extract to be submitted"
+  handler       = "index.ExtractNew"
   runtime       = "nodejs14.x"
 
   tags = {
@@ -54,7 +117,7 @@ module "lambda_function_prepare_ingress" {
   allowed_triggers = {
     AllowExecutionFromAPIGateway = {
       service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/prepare-ingress"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract/new"
     }
   }
 
@@ -69,6 +132,11 @@ module "lambda_function_prepare_ingress" {
       effect    = "Allow",
       actions   = ["kms:GenerateDataKey"]
       resources = [aws_kms_key.objects.arn]
+    },
+    dynamoPutItem = {
+      effect    = "Allow",
+      actions   = ["dynamodb:PutItem"],
+      resources = [aws_dynamodb_table.extracts.arn]
     }
   }
 
@@ -76,16 +144,16 @@ module "lambda_function_prepare_ingress" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/request/dist"
+  source_path = "${path.module}/../src/api/dist"
 }
 
-module "lambda_function_egress_result" {
+module "lambda_function_extract_get" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "egress-result"
+  function_name = "ExtractGet"
   description   = "Function to return the end result of the transformation process"
-  handler       = "index.egressResult"
+  handler       = "index.ExtractGet"
   runtime       = "nodejs14.x"
 
   tags = {
@@ -97,7 +165,7 @@ module "lambda_function_egress_result" {
   allowed_triggers = {
     AllowExecutionFromAPIGateway = {
       service    = "apigateway"
-      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract/result/*"
+      source_arn = "${module.client_api.this_apigatewayv2_api_execution_arn}/*/*/extract/*"
     }
   }
 
@@ -124,16 +192,16 @@ module "lambda_function_egress_result" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/request/dist"
+  source_path = "${path.module}/../src/api/dist"
 }
 
-module "lambda_function_interpretation" {
+module "lambda_function_interpretation_get" {
   source = "terraform-aws-modules/lambda/aws"
   version = "1.37.0"
 
-  function_name = "interpretation"
+  function_name = "InterpretationGet"
   description   = "Function to return the end result of the interpretation process"
-  handler       = "index.interpretation"
+  handler       = "index.InterpretationGet"
   runtime       = "nodejs14.x"
 
   tags = {
@@ -167,65 +235,7 @@ module "lambda_function_interpretation" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/request/dist"
-}
-
-module "client_api" {
-  source  = "terraform-aws-modules/apigateway-v2/aws"
-  version = "0.10.0"
-
-  name          = "client-api"
-  description   = "A gateway for the X client"
-  protocol_type = "HTTP"
-
-  // @TODO lock down
-  cors_configuration = {
-    allow_headers = ["content-type", "x-amz-date", "authorization", "x-api-key", "x-amz-security-token", "x-amz-user-agent"]
-    allow_methods = ["*"]
-    allow_origins = ["*"]
-  }
-
-  default_stage_access_log_destination_arn = aws_cloudwatch_log_group.client_api_log_group.arn
-  // @TODO - is this maximal logging?
-  default_stage_access_log_format          = "$context.identity.sourceIp - - [$context.requestTime] \"$context.httpMethod $context.routeKey $context.protocol\" $context.status $context.responseLength $context.requestId $context.integrationErrorMessage"
-
-  create_api_domain_name = false
-
-  # Routes and integrations
-  integrations = {
-    "GET /extract/list" = {
-      lambda_arn             = module.lambda_function_list_documents.this_lambda_function_arn
-      payload_format_version = "2.0"
-      timeout_milliseconds   = 12000
-      authorization_type     = "JWT"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
-    },
-    "POST /prepare-ingress" = {
-      lambda_arn             = module.lambda_function_prepare_ingress.this_lambda_function_arn
-      payload_format_version = "2.0"
-      timeout_milliseconds   = 12000
-      authorization_type     = "JWT"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
-    },
-    "GET /extract/result/{key}" = {
-      lambda_arn             = module.lambda_function_egress_result.this_lambda_function_arn
-      payload_format_version = "2.0"
-      timeout_milliseconds   = 12000
-      authorization_type     = "JWT"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
-    },
-    "GET /interpretation/{key}" = {
-      lambda_arn             = module.lambda_function_interpretation.this_lambda_function_arn
-      payload_format_version = "2.0"
-      timeout_milliseconds   = 12000
-      authorization_type     = "JWT"
-      authorizer_id          = aws_apigatewayv2_authorizer.client_api_authorizer.id
-    }
-  }
-
-  tags = {
-    Product = var.deployment_name
-  }
+  source_path = "${path.module}/../src/api/dist"
 }
 
 resource "aws_apigatewayv2_authorizer" "client_api_authorizer" {
