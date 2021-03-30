@@ -96,7 +96,8 @@ module "lambda_function_extract_index" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/api/dist"
+  create_package         = false
+  local_existing_package = "${path.module}/../src/api/dist/dist.zip"
 }
 
 module "lambda_function_extract_new" {
@@ -144,7 +145,8 @@ module "lambda_function_extract_new" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/api/dist"
+  create_package         = false
+  local_existing_package = "${path.module}/../src/api/dist/dist.zip"
 }
 
 module "lambda_function_extract_get" {
@@ -192,7 +194,8 @@ module "lambda_function_extract_get" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/api/dist"
+  create_package         = false
+  local_existing_package = "${path.module}/../src/api/dist/dist.zip"
 }
 
 module "lambda_function_interpretation_get" {
@@ -235,7 +238,8 @@ module "lambda_function_interpretation_get" {
     "S3_BUCKET" = module.s3_bucket.this_s3_bucket_id
   }
 
-  source_path = "${path.module}/../src/api/dist"
+  create_package         = false
+  local_existing_package = "${path.module}/../src/api/dist/dist.zip"
 }
 
 resource "aws_apigatewayv2_authorizer" "client_api_authorizer" {
