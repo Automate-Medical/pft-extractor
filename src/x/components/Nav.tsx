@@ -70,7 +70,11 @@ const Nav = () => {
                 </a>
               </Link>
             </Navbar.Heading>
-            <Link href="/">
+            <Link href="/interpret">
+              <AnchorButton icon="confirm" intent={isBeneath("/interpret") ? "none" : "success"} minimal={isBeneath("/interpret") ? true : false} active={isBeneath("/interpret")}>Interpret</AnchorButton>
+            </Link>
+            <Navbar.Divider />
+            <Link href="/extract">
               <AnchorButton icon="import" minimal={true} active={isBeneath("/extract")}>Extract</AnchorButton>
             </Link>
             <Navbar.Divider />

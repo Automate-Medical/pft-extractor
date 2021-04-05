@@ -1,7 +1,6 @@
 import { Button, FileInput, FormGroup, H1, H2, H3, H4, H5, InputGroup, Label, Position, Spinner, TagInput, Toaster } from "@blueprintjs/core";
 import React, { useState } from "react";
-import { v4 as uuid } from 'uuid';
-import api from "../../lib/api";
+import { newExtracts } from "../../lib/upload";
 import { AppToaster } from "./../../components/Toaster";
 
 import styles from "./_new.module.scss"
@@ -11,44 +10,25 @@ export default function UploadFragment() {
   const [filesToUpload, setFilesToUpload] = useState<FileList>()
   const [jobTag, setJobTag] = useState<string>(null)
 
-  async function asyncForEach(array, callback) {
-    for (let index = 0; index < array.length; index++) {
-      await callback(array[index], index, array);
-    }
-  }
-
   function handleFileChange(event: React.FormEvent<HTMLInputElement>) {
     setFilesToUpload(event.currentTarget.files)
   }
 
-
   async function upload() {
     setUploading(true)
 
-    asyncForEach(Array.from(filesToUpload), async (file) => {
-      const key = uuid()
-      const { signedUrl } = await api("/extract/new", "POST", JSON.stringify({ key, jobTag }))
-
-      let body = new FormData()
-      Object.keys(signedUrl.fields).forEach(key => body.append(key, signedUrl.fields[key]))
-      // @ts-ignore
-      body.append('file', file)
-
-      const response = await fetch(signedUrl.url, { method: "POST", body })
-
-      return response
-    }).then((data) => {
-      AppToaster.show({ message: "PFT/CPET processing started", intent: "success"});
-    }).finally(() => {
-      setFilesToUpload(null)
-      setUploading(false)
-    })
+    newExtracts(filesToUpload, jobTag)
+      .then((data) => {
+        AppToaster.show({ message: "PFT/CPET processing started", intent: "success"});
+      }).finally(() => {
+        setFilesToUpload(null)
+        setUploading(false)
+      })
   }
 
   function handleSetJobTag(e) {
     setJobTag(e.target.value)
   }
-
 
   return (
     <section className={styles.New}>

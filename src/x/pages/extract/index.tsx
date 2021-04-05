@@ -2,7 +2,7 @@ import Link from 'next/link'
 import React, { Fragment, useState } from 'react';
 import useSWR, { SWRResponse } from 'swr'
 import api from '../../lib/api'
-import { AnchorButton, Button, ButtonGroup, Drawer, H2, HTMLTable, IButtonProps, Icon, Intent, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core';
+import { AnchorButton, Button, ButtonGroup, Drawer, H2, HTMLTable, IButtonProps, Icon, Intent, NonIdealState, Spinner, Tab, Tabs, Tag } from '@blueprintjs/core';
 
 import styles from "./index.module.scss"
 import "normalize.css";
@@ -51,9 +51,41 @@ export default function Index() {
     )
   }
 
+  const count = data?.list?.length;
+
+  function Results() {
+    if (data && count > 0) {
+      return (
+        <HTMLTable className={styles.Table} condensed={true} striped={true}>
+          <thead>
+            <tr>
+              <th>UUID</th>
+              <th>Job Tag</th>
+              <th>Stage</th>
+              <th>Location</th>
+              <th>Last Modified <Icon icon="chevron-down" /></th>
+            </tr>
+          </thead>
+          <tbody>
+            { rows }
+          </tbody>
+        </HTMLTable>
+      )
+    } else if (data) {
+      return (
+        <NonIdealState
+          icon="search"
+          title="No results"
+          description="No Extracts match this search" />
+      )
+    } else {
+      return <Spinner className={styles.TableLoadingSpinner} />
+    }
+  }
+
   return (
     <main className={styles.Main}>
-      <H2>Extract</H2>
+      <H2>Extract <small>Showing { count } results</small></H2>
       <Fragment>
         <section className={styles.TableFilter}>
           <ButtonGroup>
@@ -66,24 +98,7 @@ export default function Index() {
             <Button icon="import" text="Start new job" intent="primary" onClick={() => setShowingNewJob(!showingNewJob)} />
           </section>
         </section>
-
-        <HTMLTable className={styles.Table} condensed={true} striped={true}>
-          <thead>
-            <tr>
-              <th>UUID</th>
-              <th>Job Tag</th>
-              <th>Stage</th>
-              <th>Location</th>
-              <th>Last Modified <Icon icon="chevron-down" /></th>
-            </tr>
-          </thead>
-
-          { data ?
-            <tbody>
-              { rows }
-            </tbody>
-          : null }
-        </HTMLTable>
+        <Results />
       </Fragment>
       <Drawer size={Drawer.SIZE_SMALL} isOpen={showingNewJob} icon="info-sign"
         onClose={() => setShowingNewJob(false)}
