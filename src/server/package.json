@@ -1,0 +1,25 @@
+{
+  "name": "pftx",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "sst test",
+    "start": "sst start",
+    "build": "sst build",
+    "deploy": "sst deploy --outputs-file outputs.cdk.json",
+    "remove": "sst remove"
+  },
+  "devDependencies": {
+    "@aws-cdk/assert": "1.94.1",
+    "@types/aws-lambda": "^8.10.70",
+    "@types/jest": "^26.0.22",
+    "@types/uuid": "^8.3.0",
+    "jest": "^26.6.3"
+  },
+  "dependencies": {
+    "@aws-cdk/core": "1.94.1",
+    "@serverless-stack/cli": "0.10.8",
+    "@serverless-stack/resources": "0.10.8",
+    "uuid": "^3.3.2"
+  }
+}
