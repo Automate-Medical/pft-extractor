@@ -30,11 +30,11 @@
       },
       SCANNED: {
         on: {
-          Structure: 'FINISHED',
+          Structure: 'IDENTIFIED',
           Error: 'ERROR'
         }
       },
-      FINISHED: {
+      IDENTIFIED: {
         type: 'final'
       },
       ERROR: {

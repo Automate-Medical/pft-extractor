@@ -1,0 +1,12 @@
+.Table, .Header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.Table table:nth-child(2) {
+  border-left: 1px solid #d4d5d8;
+}
+
+.Table table tr {
+  height: 30px;
+}

@@ -1,0 +1,20 @@
+@import "../../Global.scss";
+
+.Main {
+  margin: 20px;
+  max-width: 780px;
+  display: grid;
+  grid-gap: $grid-gap;
+  grid-template-columns: 1fr;
+}
+
+.NotFinished {
+  margin: 5rem auto;
+  max-width: 460px;
+  min-width: 300px;
+  text-align: center;
+}
+
+.Loading {
+  margin-top: 5rem;
+}
