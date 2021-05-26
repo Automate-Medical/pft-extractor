@@ -33,7 +33,7 @@ A project for managing pulmonary function test data using AWS.
 ## src/server
 
 0. You will receive access to our AWS platform with our own developer account at https://automatemedical.awsapps.com/start#/ - set up ~/.aws/credentials (your developer account is isolated from the rest of our infra). This guide will assume you are using your crendetials as the "default" profile.
-1. Ensure you have Node.js 12.x installed
+1. Ensure you have Node.js 14.x installed
 2. `cd src/server; npm install`
 3. `npm run deploy`
 4. Create a user account to log into via the AWS Managment panel -> Cognito
