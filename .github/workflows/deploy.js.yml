@@ -29,5 +29,5 @@ jobs:
 
     - run: npm ci
       working-directory: ./src/server
-    - run: npx sst deploy --outputs-file outputs.cdk.json --stage prod
+    - run: npm run deploy -- --stage prod
       working-directory: ./src/server
