@@ -15,7 +15,7 @@ export default function Index() {
   const [filter, setFilter] = useState<string>("ALL")
   const [showingNewJob, setShowingNewJob] = useState<boolean>(false)
 
-  const { data, error }: SWRResponse<{ list: any[]}, string> = useSWR(`/extract?filter=${filter}`, api, { refreshInterval: 1000 })
+  const { data, error }: SWRResponse<{ extracts: any[]}, string> = useSWR(`/extract?filter=${filter}`, api, { refreshInterval: 1000 })
 
   console.log(data, error)
 
@@ -41,12 +41,12 @@ export default function Index() {
     )
   }
 
-  const count = data?.list?.length;
+  const count = data?.extracts?.length;
 
   function Results() {
     if (data && count > 0) {
 
-      const rows = data?.list?.sort((a, b) => {
+      const rows = data?.extracts?.sort((a, b) => {
         if (a.lastModified < b.lastModified) {
           return 1
         } else if (a.lastModified > b.lastModified) {

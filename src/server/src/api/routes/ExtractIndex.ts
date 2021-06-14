@@ -44,7 +44,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
 
     const response = await DynamoDBClient.scan(input).promise()
 
-    const list: APIListDocumentsListItem[] = response.Items ? response.Items.map((item) => {
+    const extracts: APIListDocumentsListItem[] = response.Items ? response.Items.map((item) => {
       return {
         key: item.ID.S,
         lastModified: item.ModifiedAt.S,
@@ -53,7 +53,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       }
     }) : []
 
-    return JSONResponse({ list })
+    return JSONResponse({ extracts })
 
   } catch(e) {
     console.error(e)
