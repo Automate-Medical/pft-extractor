@@ -5,8 +5,6 @@ import styles from './Nav.module.scss'
 import Logo from './Logo';
 import React, { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { isatty } from 'node:tty';
-import { pathToFileURL } from 'node:url';
 
 const SubNav = () => {
   const router = useRouter()

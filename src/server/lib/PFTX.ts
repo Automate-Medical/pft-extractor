@@ -1,5 +1,5 @@
 import * as sst from "@serverless-stack/resources";
-import { HttpMethod } from "@aws-cdk/aws-apigatewayv2";
+import { CorsHttpMethod } from "@aws-cdk/aws-apigatewayv2";
 import { HttpUserPoolAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers";
 import { ApiAuthorizationType } from "@serverless-stack/resources";
 import { PolicyStatement, Effect, Role, ServicePrincipal, PolicyDocument, AccountRootPrincipal } from "@aws-cdk/aws-iam"
@@ -19,7 +19,9 @@ export default class PFTX extends sst.Stack {
 
     const userPool = new UserPool(this, "UserPool", {
       selfSignUpEnabled: false,
-      signInAliases: { email: true },
+      signInAliases: {
+        email: true
+      },
       signInCaseSensitive: false
     });
 
@@ -281,7 +283,7 @@ export default class PFTX extends sst.Stack {
       defaultPayloadFormatVersion: sst.ApiPayloadFormatVersion.V2,
       cors: {
         allowHeaders: ["content-type", "x-amz-date", "authorization", "x-api-key", "x-amz-security-token", "x-amz-user-agent"],
-        allowMethods: [HttpMethod.GET, HttpMethod.POST],
+        allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST],
         allowOrigins: ["*"]
       }
     });
@@ -388,12 +390,11 @@ export default class PFTX extends sst.Stack {
       })
     ])
 
-    TextractJobCompleted.addSubscriber(this, scan);
+    TextractJobCompleted.addSubscribers(this, [scan]);
 
     /////////////////
     // CDK Outputs //
     /////////////////
-
     this.addOutputs({
       "ApiEndpoint": api.httpApi.apiEndpoint,
       "UserPoolId": userPool.userPoolId,
