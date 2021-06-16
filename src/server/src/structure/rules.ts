@@ -2,6 +2,7 @@ export const FVC = /^FVC\s*\(?L?\)?\s*$/
 export const FEV1 = /^FEV\s*1\s*\(?L?\)?\s*$/
 export const FEV1_FVC = /^FEV\s*1\s*\/?%?\s*FVC\s*\(?%?\)?\s*$/
 export const FEF50 = /^FEF\s*50\s*$/
+export const FEF75 = /^FEF\s*75\s*$/
 export const FEF25_75 = /^FEF25-?75%?\s*(\(%\))?\s*$/
 export const FET = /^FET(100%|\s*\(sec\))?\s*$/
 export const PEF = /^PEF\s*$/

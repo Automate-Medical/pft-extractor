@@ -43,6 +43,10 @@ function extract(data: AnalyzeDocumentResponse): PFT {
         [PFTType.FEF50_PRE, PFTType.FEF50_POST, PFTType.FEF50_REF, PFTType.FEF50_PREREF, PFTType.FEF50_POSTREF, PFTType.FEF50_LLN, PFTType.FEF50_ULN].forEach((block: PFTType, index) => {
           if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
         })
+      } else if (row[0].match(Rules.FEF75)) {
+        [PFTType.FEF75_PRE, PFTType.FEF75_POST, PFTType.FEF75_REF, PFTType.FEF75_PREREF, PFTType.FEF75_POSTREF, PFTType.FEF75_LLN, PFTType.FEF75_ULN].forEach((block: PFTType, index) => {
+          if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
+        })
       } else if (row[0].match(Rules.PEF)) {
         [PFTType.PEF_PRE, PFTType.PEF_POST, PFTType.PEF_REF, PFTType.PEF_PREREF, PFTType.PEF_POSTREF, PFTType.PEF_LLN, PFTType.PEF_ULN].forEach((block: PFTType, index) => {
           if (columns[index]) preparePFTElement(pft, block, row[columns[index]])
@@ -458,7 +462,7 @@ function createPFTElement(type: PFTType, value: number | string): PFTElement {
     case PFTType.FEF50_POSTREF:
       return {
         meta: {
-          shortName: "FEF 25-75% p BD % Predicted",
+          shortName: "FEF 50% p BD % Predicted",
           units: "%",
           group: "Spirometry",
           type: PFTType.FEF50_POSTREF
@@ -482,6 +486,76 @@ function createPFTElement(type: PFTType, value: number | string): PFTElement {
           units: "L/s",
           group: "Spirometry",
           type: PFTType.FEF50_ULN
+        },
+        value
+      }
+    case PFTType.FEF75_PRE:
+      return {
+        meta: {
+          shortName: "FEF 75% pre BD",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF75_PRE
+        },
+        value
+      }
+    case PFTType.FEF75_POST:
+      return {
+        meta: {
+          shortName: "FEF 75% p BD",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF75_POST
+        },
+        value
+      }
+    case PFTType.FEF75_REF:
+      return {
+        meta: {
+          shortName: "FEF 75% Predicted",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF75_REF
+        },
+        value
+      }
+    case PFTType.FEF75_PREREF:
+      return {
+        meta: {
+          shortName: "FEF 75% pre BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEF75_PREREF
+        },
+        value
+      }
+    case PFTType.FEF75_POSTREF:
+      return {
+        meta: {
+          shortName: "FEF 75% p BD % Predicted",
+          units: "%",
+          group: "Spirometry",
+          type: PFTType.FEF50_POSTREF
+        },
+        value
+      }
+    case PFTType.FEF75_LLN:
+      return {
+        meta: {
+          shortName: "FEF 75% LLN",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF75_LLN
+        },
+        value
+      }
+    case PFTType.FEF75_ULN:
+      return {
+        meta: {
+          shortName: "FEF 75% ULN",
+          units: "L/s",
+          group: "Spirometry",
+          type: PFTType.FEF75_ULN
         },
         value
       }
