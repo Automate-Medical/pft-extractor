@@ -34,7 +34,7 @@ A project for managing pulmonary function test data using AWS.
 
 ## src/server
 
-0. You will receive access to our AWS platform with our own developer account at https://automatemedical.awsapps.com/start#/ - set up ~/.aws/credentials (your developer account is isolated from the rest of our infra). This guide will assume you are using your crendetials as the "default" profile.
+0. Set up ~/.aws/credentials. This guide will assume you are using your crendetials as the "default" profile.
 1. Ensure you have Node.js 14.x installed
 2. `cd src/server; npm install`
 3. `npm run deploy`
@@ -59,8 +59,6 @@ NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID = ""
 3. `npm run start`
 
 # Development
-
-When you join the project, an entire AWS account namespace will be assigned to you. You create your development environment using the steps above.
 
 ## src/server
 
