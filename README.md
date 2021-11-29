@@ -2,6 +2,8 @@
 
 A project for managing pulmonary function test data using AWS.
 
+PFT X uses Textract and regular expressions to filter pulmonary function test data out of PDF format and into structured JSON.
+
 **Note** This project is for demonstration purposes only.
 
 # Architecture
