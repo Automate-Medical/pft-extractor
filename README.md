@@ -1,4 +1,4 @@
-# PFT X
+# PFT Extractor
 
 A project for managing pulmonary function test data using AWS.
 
